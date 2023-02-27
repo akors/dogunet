@@ -39,11 +39,11 @@ CLASS_MAX = np.amax([c for c in classnames.keys()])
 CLASS_DOG = 12
 
 
-
 #m, s = np.mean(input_image, axis=(0, 1)), np.std(input_image, axis=(0, 1))
 transform = transforms.Compose([
     transforms.ToTensor(),
-    transforms.CenterCrop((256,256))
+    transforms.Resize([192,]),
+    transforms.Pad([0,32]),
     #transforms.Normalize(mean=m, std=s),
 ])
 
@@ -53,8 +53,9 @@ def dog_only(target):
 
 target_transform = transforms.Compose([
     transforms.PILToTensor(),
-    transforms.CenterCrop((256,256)),
-    transforms.Lambda(dog_only)
+    transforms.Resize([192,], interpolation=torchvision.transforms.InterpolationMode.NEAREST, antialias=False),
+    transforms.Pad([0,32]),
+    #transforms.Lambda(dog_only)
 ])
 
 
