@@ -99,10 +99,11 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
     
     return nonzero_masks
 
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 8
 learning_rate = 1e-4
-
+model_name="dogunet"
 
 def train(num_epochs: int):
     # create datasets with our transforms. assume they're already downloaded
@@ -121,24 +122,36 @@ def train(num_epochs: int):
     print(f"len(ds_val): {len(ds_val)}")
 
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
-        in_channels=3, out_channels=1, init_features=16, pretrained=False)
+        in_channels=3, out_channels=CLASS_MAX+1, init_features=16, pretrained=False)
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True)
     #val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
-    criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    #criterion = torch.nn.MSELoss()
+    criterion = torch.nn.CrossEntropyLoss()
+    optimizer = torch.optim.AdamW(model.parameters())#, lr=learning_rate)
 
     for epoch in range(num_epochs):
         
-        for batch_idx, batch in tqdm(enumerate(train_dataloader)):
+        for batch in tqdm(train_dataloader):
             img, mask = batch
             img = img.to(device)
-            mask = mask.to(device='cuda', dtype=torch.float32)
+
+            # bring mask to device
+            mask = mask.to(device=device)
+
 
             pred = model(img)
-            loss = criterion(pred, mask)
+            pred_s = torch.nn.functional.softmax(pred, dim=1)
+
+            # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
+            mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
+            #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
+            #target_mask = torch.zeros_like(pred)
+            #target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
+
+            loss = criterion(pred_s, mask.squeeze(1))
 
             
             loss.backward()
@@ -148,8 +161,8 @@ def train(num_epochs: int):
 
         print(f"Loss after epoch {epoch+1}: {loss.item()}")
 
-    torch.save(model, "dogunet.pth")
+    torch.save(model, model_name + ".pth")
     return 0
 
 if __name__ == "__main__":
-    exit(train(10))
+    exit(train(30))
