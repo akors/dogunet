@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from typing import Iterable, List, Tuple
 
 import numpy as np
@@ -101,38 +103,38 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-batch_size = 8
-learning_rate = 1e-4
+learning_rate = 1e-3
 model_name="dogunet"
+nproc=8
 
-def train(num_epochs: int):
+def train(num_epochs: int, batch_size: int):
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
-        root="./data/", year="2012", image_set="train", download=False,
+        root="./data/", year="2012", image_set="trainval", download=False,
         transform=transform, target_transform=target_transform)
-    ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
-        year="2012", image_set="val",
-        download=False, transform=transform, target_transform=target_transform)
+    # ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
+    #     year="2012", image_set="val",
+    #     download=False, transform=transform, target_transform=target_transform)
 
     # # filter datasets to contain only dogs
     # ds_train = torch.utils.data.Subset(ds_train, find_nonzero_masks(ds_train))
     # ds_val = torch.utils.data.Subset(ds_train, find_nonzero_masks(ds_val))
 
     print(f"len(ds_train): {len(ds_train)}")
-    print(f"len(ds_val): {len(ds_val)}")
+    #print(f"len(ds_val): {len(ds_val)}")
 
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
-        in_channels=3, out_channels=CLASS_MAX+1, init_features=16, pretrained=False)
+        in_channels=3, out_channels=CLASS_MAX+1, init_features=32, pretrained=False)
     model = model.to(device)
 
-    train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True)
+    train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
     #val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
     #criterion = torch.nn.MSELoss()
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters())#, lr=learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    for epoch in range(num_epochs):
+    for epoch in tqdm(range(num_epochs)):
         
         for batch in tqdm(train_dataloader):
             img, mask = batch
@@ -152,12 +154,10 @@ def train(num_epochs: int):
             #target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
 
             loss = criterion(pred_s, mask.squeeze(1))
-
             
-            loss.backward()
-
-            optimizer.step()
             optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
         print(f"Loss after epoch {epoch+1}: {loss.item()}")
 
@@ -165,4 +165,13 @@ def train(num_epochs: int):
     return 0
 
 if __name__ == "__main__":
-    exit(train(30))
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Your script description here')
+    parser.add_argument('--epochs', type=int, default=20, help='Number of epochs to train (default: 20)')
+    parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
+
+    args = parser.parse_args()
+
+
+    exit(train(num_epochs=args.epochs, batch_size=args.batchsize))
