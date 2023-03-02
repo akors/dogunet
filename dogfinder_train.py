@@ -134,9 +134,9 @@ def train(num_epochs: int, batch_size: int):
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in tqdm(range(num_epochs), desc="Epochs"):
         
-        for batch in tqdm(train_dataloader):
+        for batch in tqdm(train_dataloader, desc="Batches"):
             img, mask = batch
             img = img.to(device)
 
