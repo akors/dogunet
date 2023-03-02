@@ -148,9 +148,10 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
     criterion = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    for epoch in tqdm(range(num_epochs), desc="Epochs"):
+    for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         train_losses = list()
-        for batch in tqdm(train_dataloader, desc="Batches (train)"):
+        train_accuracy = list()
+        for batch in tqdm(train_dataloader, desc="Batches (train)", unit="batch"):
             img, mask = batch
             img = img.to(device)
 
@@ -173,11 +174,18 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
             loss.backward()
             optimizer.step()
 
+            # calculate pixel-wise annoation accuracy for all imgs in batch
+            acc = (mask.squeeze() == torch.argmax(pred, dim=1))
+            acc = (acc.sum()/acc.numel()).item()
+            train_accuracy.append(acc)
+
         epoch_train_loss = np.mean(train_losses)
-        tqdm.write(f"Training loss avg for epoch {epoch+1}: {epoch_train_loss}")
+        epoch_train_accuracy = np.mean(train_accuracy)
+        tqdm.write(f"Epoch {epoch+1}; training loss={epoch_train_loss:.4f}; training pixel accuracy={epoch_train_accuracy:.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1:
             val_losses = list()
+            val_accuracy = list()
             with torch.no_grad():
                 for batch in tqdm(val_dataloader, desc="Batches (val)"):
                     img, mask = batch
@@ -198,9 +206,14 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
                     loss = criterion(pred, target_mask)
                     val_losses.append(loss.item())
 
+                    # calculate pixel-wise annoation accuracy for alyl imgs in batch
+                    acc = (mask.squeeze() == torch.argmax(pred, dim=1))
+                    acc = (acc.sum()/acc.numel()).item()
+                    val_accuracy.append(acc)
 
             epoch_val_loss = np.mean(val_losses)
-            tqdm.write(f"Validation loss after epoch {epoch+1}: {epoch_val_loss}")
+            epoch_val_accuracy = np.mean(val_accuracy)
+            tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
     torch.save(model, model_name + ".pth")
     return 0
