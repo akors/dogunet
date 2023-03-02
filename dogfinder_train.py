@@ -81,6 +81,24 @@ class Resize_with_pad:
         else:
             return F.resize(image, [self.h, self.w])
 
+
+# shamelessly stolen from https://github.com/mateuszbuda/brain-segmentation-pytorch/blob/master/loss.py
+class DiceLoss(torch.nn.Module):
+    def __init__(self):
+        super(DiceLoss, self).__init__()
+        self.smooth = 1.0
+
+    def forward(self, y_pred, y_true):
+        assert y_pred.size() == y_true.size()
+        y_pred = y_pred[:, 0].contiguous().view(-1)
+        y_true = y_true[:, 0].contiguous().view(-1)
+        intersection = (y_pred * y_true).sum()
+        dsc = (2. * intersection + self.smooth) / (
+            y_pred.sum() + y_true.sum() + self.smooth
+        )
+        return 1. - dsc
+
+
 #m, s = np.mean(input_image, axis=(0, 1)), np.std(input_image, axis=(0, 1))
 transform = transforms.Compose([
     Resize_with_pad(256,256),
@@ -131,7 +149,8 @@ def train(num_epochs: int, batch_size: int):
     #val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
     #criterion = torch.nn.MSELoss()
-    criterion = torch.nn.CrossEntropyLoss()
+    #criterion = torch.nn.CrossEntropyLoss()
+    criterion = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     for epoch in tqdm(range(num_epochs), desc="Epochs"):
@@ -150,10 +169,10 @@ def train(num_epochs: int, batch_size: int):
             # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
             mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
             #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
-            #target_mask = torch.zeros_like(pred)
-            #target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
+            target_mask = torch.zeros_like(pred)
+            target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
 
-            loss = criterion(pred_s, mask.squeeze(1))
+            loss = criterion(pred, target_mask)
             
             optimizer.zero_grad()
             loss.backward()
