@@ -188,7 +188,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Your script description here')
     parser.add_argument('--epochs', type=int, default=20, help='Number of epochs to train (default: 20)')
     parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
-    parser.add_argument('--learningrate', type=float, default=None, help='Learning Rate (default: torch defaults)')
+    parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
 
     args = parser.parse_args()
 
