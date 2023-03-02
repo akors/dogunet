@@ -123,47 +123,42 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model_name="dogunet"
 nproc=8
+val_epoch_freq=1
 
 def train(num_epochs: int, batch_size: int, learning_rate: float=None):
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
-        root="./data/", year="2012", image_set="trainval", download=False,
+        root="./data/", year="2012", image_set="train", download=False,
         transform=transform, target_transform=target_transform)
-    # ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
-    #     year="2012", image_set="val",
-    #     download=False, transform=transform, target_transform=target_transform)
-
-    # # filter datasets to contain only dogs
-    # ds_train = torch.utils.data.Subset(ds_train, find_nonzero_masks(ds_train))
-    # ds_val = torch.utils.data.Subset(ds_train, find_nonzero_masks(ds_val))
+    ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
+        year="2012", image_set="val",
+        download=False, transform=transform, target_transform=target_transform)
 
     print(f"len(ds_train): {len(ds_train)}")
-    #print(f"len(ds_val): {len(ds_val)}")
+    print(f"len(ds_val): {len(ds_val)}")
 
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
         in_channels=3, out_channels=CLASS_MAX+1, init_features=32, pretrained=False)
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
-    #val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
-    #criterion = torch.nn.MSELoss()
     #criterion = torch.nn.CrossEntropyLoss()
     criterion = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     for epoch in tqdm(range(num_epochs), desc="Epochs"):
-        
-        for batch in tqdm(train_dataloader, desc="Batches"):
+        train_losses = list()
+        for batch in tqdm(train_dataloader, desc="Batches (train)"):
             img, mask = batch
             img = img.to(device)
 
             # bring mask to device
             mask = mask.to(device=device)
 
-
             pred = model(img)
-            pred_s = torch.nn.functional.softmax(pred, dim=1)
+            #pred_s = torch.nn.functional.softmax(pred, dim=1)
 
             # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
             mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
@@ -172,12 +167,40 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
             target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
 
             loss = criterion(pred, target_mask)
+            train_losses.append(loss.item())
             
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        print(f"Loss after epoch {epoch+1}: {loss.item()}")
+        epoch_train_loss = np.mean(train_losses)
+        tqdm.write(f"Training loss avg for epoch {epoch+1}: {epoch_train_loss}")
+
+        if epoch % val_epoch_freq == val_epoch_freq - 1:
+            val_losses = list()
+            with torch.no_grad():
+                for batch in tqdm(val_dataloader, desc="Batches (val)"):
+                    img, mask = batch
+                    img = img.to(device)
+
+                    # bring mask to device
+                    mask = mask.to(device=device)
+                    # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
+                    mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
+
+                    pred = model(img)
+                    #pred_s = torch.nn.functional.softmax(pred, dim=1)
+
+                    #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
+                    target_mask = torch.zeros_like(pred)
+                    target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
+
+                    loss = criterion(pred, target_mask)
+                    val_losses.append(loss.item())
+
+
+            epoch_val_loss = np.mean(val_losses)
+            tqdm.write(f"Validation loss after epoch {epoch+1}: {epoch_val_loss}")
 
     torch.save(model, model_name + ".pth")
     return 0
