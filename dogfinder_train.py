@@ -10,6 +10,8 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets
 
+from torch.utils.tensorboard import SummaryWriter
+
 from tqdm import tqdm
 
 from torchvision import transforms
@@ -148,6 +150,9 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
     criterion = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+    writer = SummaryWriter()
+    writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
+
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         train_losses = list()
         train_accuracy = list()
@@ -174,13 +179,19 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
             loss.backward()
             optimizer.step()
 
-            # calculate pixel-wise annoation accuracy for all imgs in batch
-            acc = (mask.squeeze() == torch.argmax(pred, dim=1))
-            acc = (acc.sum()/acc.numel()).item()
-            train_accuracy.append(acc)
+            with torch.no_grad():
+                # calculate pixel-wise annoation accuracy for all imgs in batch
+                acc = (mask.squeeze() == torch.argmax(pred, dim=1))
+                acc = (acc.sum()/acc.numel()).item()
+                train_accuracy.append(acc)
+
 
         epoch_train_loss = np.mean(train_losses)
         epoch_train_accuracy = np.mean(train_accuracy)
+
+        writer.add_scalar('Loss/train', epoch_train_loss, epoch)
+        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, epoch)
+
         tqdm.write(f"Epoch {epoch+1}; training loss={epoch_train_loss:.4f}; training pixel accuracy={epoch_train_accuracy:.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1:
@@ -213,6 +224,10 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
 
             epoch_val_loss = np.mean(val_losses)
             epoch_val_accuracy = np.mean(val_accuracy)
+
+            writer.add_scalar('Loss/val', epoch_val_loss, epoch)
+            writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
+
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
     torch.save(model, model_name + ".pth")
