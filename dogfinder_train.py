@@ -115,8 +115,11 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
             # bring mask to device
             mask = mask.to(device=device)
 
+            # TODO verify that mean of img ~= 0
+            # TODO plot img, mask into tensorboard for testing
+
             pred = model(img)
-            #pred_s = torch.nn.functional.softmax(pred, dim=1)
+            pred_s = torch.nn.functional.softmax(pred, dim=1)
 
             # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
             mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
@@ -124,7 +127,7 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
             target_mask = torch.zeros_like(pred)
             target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
 
-            loss = criterion(pred, target_mask)
+            loss = criterion(pred_s, target_mask)
             train_losses.append(loss.item())
             
             optimizer.zero_grad()
@@ -160,13 +163,13 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
                     mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
 
                     pred = model(img)
-                    #pred_s = torch.nn.functional.softmax(pred, dim=1)
+                    pred_s = torch.nn.functional.softmax(pred, dim=1)
 
                     #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
                     target_mask = torch.zeros_like(pred)
                     target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
 
-                    loss = criterion(pred, target_mask)
+                    loss = criterion(pred_s, target_mask)
                     val_losses.append(loss.item())
 
                     # calculate pixel-wise annoation accuracy for alyl imgs in batch
