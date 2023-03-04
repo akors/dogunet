@@ -77,9 +77,8 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model_name="dogunet"
 nproc=8
-val_epoch_freq=1
 
-def train(num_epochs: int, batch_size: int, learning_rate: float=None):
+def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch_freq: int=10):
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
         root="./data/", year="2012", image_set="train", download=False,
@@ -195,8 +194,9 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=20, help='Number of epochs to train (default: 20)')
     parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
     parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
+    parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
 
     args = parser.parse_args()
 
 
-    exit(train(num_epochs=args.epochs, batch_size=args.batchsize, learning_rate=args.learningrate))
+    exit(train(num_epochs=args.epochs, batch_size=args.batchsize, learning_rate=args.learningrate, val_epoch_freq=args.validationfreq))
