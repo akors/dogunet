@@ -3,6 +3,7 @@
 from typing import Iterable, List, Tuple
 
 import numpy as np
+import matplotlib
 
 import torch
 import torch.cuda
@@ -15,6 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 import transforms
+import visualize
 
 classnames = {
     1: 'aeroplane',
@@ -79,6 +81,7 @@ model_name="dogunet"
 nproc=8
 
 def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch_freq: int=10):
+    matplotlib.use('Agg')
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
         root="./data/", year="2012", image_set="train", download=False,
@@ -181,6 +184,15 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
 
             writer.add_scalar('Loss/val', epoch_val_loss, epoch)
             writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
+
+            pred_amax = torch.argmax(pred_s[-1,:,:,:], dim=0)
+            comparison_fig = visualize.plot_prediction_comparison(
+                img=img[-1,:,:,:].cpu(),
+                prediction_mask=pred_amax.squeeze(0).cpu(),
+                target_mask=mask[-1,:,:,:].squeeze(0).cpu()
+            )
+            #comparison_fig.savefig(f"comparison_ep{epoch+1}.png")
+            writer.add_figure("PredictionComparison", figure=comparison_fig, global_step=(epoch+1)*batch_size, close=True)
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
