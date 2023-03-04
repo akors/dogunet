@@ -5,3 +5,6 @@ __pycache__/
 
 # Dataset directory
 data/
+
+# ignore runs
+runs/
