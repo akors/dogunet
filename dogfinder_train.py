@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
 
-from torchvision import transforms
+import transforms
 
 classnames = {
     1: 'aeroplane',
@@ -48,42 +48,6 @@ def dog_only(target):
     return dogness
 
 
-#https://github.com/pytorch/vision/issues/6236#issuecomment-1175971587
-import torchvision.transforms.functional as F
-
-
-class Resize_with_pad:
-    def __init__(self, w=1024, h=768, interpolation=transforms.InterpolationMode.BILINEAR):
-        self.w = w
-        self.h = h
-
-    def __call__(self, image):
-
-        w_1, h_1 = image.size
-        ratio_f = self.w / self.h
-        ratio_1 = w_1 / h_1
-
-
-        # check if the original and final aspect ratios are the same within a margin
-        if round(ratio_1, 2) != round(ratio_f, 2):
-
-            # padding to preserve aspect ratio
-            hp = int(w_1/ratio_f - h_1)
-            wp = int(ratio_f * h_1 - w_1)
-            if hp > 0 and wp < 0:
-                hp = hp // 2
-                image = F.pad(image, (0, hp, 0, hp), 0, "constant")
-                return F.resize(image, [self.h, self.w])
-
-            elif hp < 0 and wp > 0:
-                wp = wp // 2
-                image = F.pad(image, (wp, 0, wp, 0), 0, "constant")
-                return F.resize(image, [self.h, self.w])
-
-        else:
-            return F.resize(image, [self.h, self.w])
-
-
 # shamelessly stolen from https://github.com/mateuszbuda/brain-segmentation-pytorch/blob/master/loss.py
 class DiceLoss(torch.nn.Module):
     def __init__(self):
@@ -100,18 +64,6 @@ class DiceLoss(torch.nn.Module):
         )
         return 1. - dsc
 
-
-#m, s = np.mean(input_image, axis=(0, 1)), np.std(input_image, axis=(0, 1))
-transform = transforms.Compose([
-    Resize_with_pad(256,256),
-    transforms.ToTensor(),
-    #transforms.Normalize(mean=m, std=s),
-])
-
-target_transform = transforms.Compose([
-    Resize_with_pad(256,256, interpolation=transforms.InterpolationMode.NEAREST),
-    transforms.PILToTensor(),
-])
 
 def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> List:
     nonzero_masks = list()
@@ -131,10 +83,10 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None):
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
         root="./data/", year="2012", image_set="train", download=False,
-        transform=transform, target_transform=target_transform)
+        transform=transforms.input_transform, target_transform=transforms.target_transform)
     ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
         year="2012", image_set="val",
-        download=False, transform=transform, target_transform=target_transform)
+        download=False, transform=transforms.input_transform, target_transform=transforms.target_transform)
 
     print(f"len(ds_train): {len(ds_train)}")
     print(f"len(ds_val): {len(ds_val)}")
