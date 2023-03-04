@@ -35,11 +35,14 @@ class Resize_with_pad:
         else:
             return F.resize(image, [self.h, self.w])
 
+# it was revealed to me in a dream
+PASCAL_VOC_2012_MEAN=[0.485, 0.456, 0.406]
+PASCAL_VOC_2012_STD=[0.229, 0.224, 0.225]
 
 input_transform = torchvision.transforms.Compose([
     torchvision.transforms.ToTensor(),
     torchvision.transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225] # it was revealed to me in a dream
+        mean=PASCAL_VOC_2012_MEAN, std=PASCAL_VOC_2012_STD
     ),
     torchvision.transforms.ToPILImage(),
     Resize_with_pad(256,256),
