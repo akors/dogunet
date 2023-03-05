@@ -1,4 +1,5 @@
 
+from typing import List
 import torchvision.transforms
 import torchvision.transforms.functional as F
 
@@ -39,17 +40,24 @@ class Resize_with_pad:
 PASCAL_VOC_2012_MEAN=[0.485, 0.456, 0.406]
 PASCAL_VOC_2012_STD=[0.229, 0.224, 0.225]
 
-input_transform = torchvision.transforms.Compose([
-    torchvision.transforms.ToTensor(),
-    torchvision.transforms.Normalize(
-        mean=PASCAL_VOC_2012_MEAN, std=PASCAL_VOC_2012_STD
-    ),
-    torchvision.transforms.ToPILImage(),
-    Resize_with_pad(256,256),
-    torchvision.transforms.ToTensor()
-])
+def input_transform(mean: List[float], std: List[float]):
+    return torchvision.transforms.Compose([
+        Resize_with_pad(256,256),
+        torchvision.transforms.ToTensor(),
+        torchvision.transforms.Normalize(
+            mean=mean, std=std
+        ),
+        #torchvision.transforms.ToPILImage(),
+        #torchvision.transforms.ToTensor()
+    ])
 
-target_transform = torchvision.transforms.Compose([
-    Resize_with_pad(256,256, interpolation=torchvision.transforms.InterpolationMode.NEAREST),
-    torchvision.transforms.PILToTensor(),
-])
+
+def inv_normalize(mean, std):
+    return torchvision.transforms.Normalize(mean=[-m / s for m, s in zip(mean, std)],
+                                std=[1 / s for s in std])
+
+def target_transform():
+    return torchvision.transforms.Compose([
+        Resize_with_pad(256,256, interpolation=torchvision.transforms.InterpolationMode.NEAREST),
+        torchvision.transforms.PILToTensor(),
+    ])

@@ -85,10 +85,17 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
         root="./data/", year="2012", image_set="train", download=False,
-        transform=transforms.input_transform, target_transform=transforms.target_transform)
+        transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
+        target_transform=transforms.target_transform()
+    )
     ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
-        year="2012", image_set="val",
-        download=False, transform=transforms.input_transform, target_transform=transforms.target_transform)
+        year="2012", image_set="val", download=False,
+        transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
+        target_transform=transforms.target_transform()
+    )
+
+    # needed for visualization
+    inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
 
     print(f"len(ds_train): {len(ds_train)}")
     print(f"len(ds_val): {len(ds_val)}")
@@ -187,11 +194,11 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
 
             pred_amax = torch.argmax(pred_s[-1,:,:,:], dim=0)
             comparison_fig = visualize.plot_prediction_comparison(
-                img=img[-1,:,:,:].cpu(),
+                img=inv_normalize(img[-1,:,:,:]).cpu(),
                 prediction_mask=pred_amax.squeeze(0).cpu(),
                 target_mask=mask[-1,:,:,:].squeeze(0).cpu()
             )
-            #comparison_fig.savefig(f"comparison_ep{epoch+1}.png")
+
             writer.add_figure("PredictionComparison", figure=comparison_fig, global_step=(epoch+1)*batch_size, close=True)
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
