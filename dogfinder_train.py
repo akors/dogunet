@@ -4,12 +4,14 @@ from typing import Iterable, List, Tuple
 
 import numpy as np
 import matplotlib
+from matplotlib import cm
 
 import torch
 import torch.cuda
 import torch.optim
 import torch.utils.data
 import torchvision.datasets
+import torchvision.utils
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -192,14 +194,15 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
             writer.add_scalar('Loss/val', epoch_val_loss, epoch)
             writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
 
-            pred_amax = torch.argmax(pred_s[-1,:,:,:], dim=0)
-            comparison_fig = visualize.plot_prediction_comparison(
-                img=inv_normalize(img[-1,:,:,:]).cpu(),
-                prediction_mask=pred_amax.squeeze(0).cpu(),
-                target_mask=mask[-1,:,:,:].squeeze(0).cpu()
-            )
+            pred_amax = torch.argmax(pred_s, dim=1)
 
-            writer.add_figure("PredictionComparison", figure=comparison_fig, global_step=(epoch+1)*batch_size, close=True)
+            # awkwardly convert target and prediction tensors to numpy array, apply color map and convert them back
+            pred_colormapped = torch.tensor(cm.tab20(pred_amax[-1,:,:].cpu())[:,:,0:3]).permute(2, 0, 1)
+            mask_colormapped = torch.tensor(cm.tab20(mask[-1,0,:,:].cpu())[:,:,0:3]).permute(2, 0, 1)
+
+            comparison_fig_t = torchvision.utils.make_grid([inv_normalize(img[-1,:,:,:]).cpu(), pred_colormapped, mask_colormapped])
+
+            writer.add_image("PredictionComparison", comparison_fig_t, global_step=(epoch+1)*batch_size)
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
