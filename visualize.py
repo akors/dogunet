@@ -3,6 +3,7 @@ from typing import Optional
 import matplotlib
 import matplotlib.pyplot as plt
 import torch
+import torchvision.utils
 
 def imshow_tensor(img: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=None):
     img = img.permute(1, 2, 0).numpy()
@@ -33,3 +34,28 @@ def plot_prediction_comparison(img: torch.Tensor, prediction_mask: torch.Tensor,
         ax.set_yticks([])
     
     return fig
+
+def cm_to_tensor(cm: matplotlib.colors.ListedColormap):
+    # turn listed colormap into a torch tensor
+    cm_t = torch.tensor(cm.colors)
+
+    # map class zero to black
+    cm_t = torch.cat((torch.Tensor([[0, 0, 0]]), cm_t), dim=0)
+
+    return cm_t
+
+cm_tab20_t = cm_to_tensor(matplotlib.cm.tab20)
+
+def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    mask_colormapped = torch.zeros((3, *mask.shape[-2:]), device=mask.device)
+    for k in mask.to(dtype=torch.int64).unique():
+        pixels_in_class_idx = (mask == k)
+        mask_colormapped[:, pixels_in_class_idx] = cm_tab20_t.to(device=mask.device)[k, :].unsqueeze(-1)
+        
+    pred_colormapped = torch.zeros((3, *prediction.shape[-2:])).to(prediction.device)
+    for k in prediction.to(dtype=torch.int64).unique():
+        pixels_in_class_idx = (prediction == k)
+        pred_colormapped[:, pixels_in_class_idx] = cm_tab20_t.to(device=mask.device)[k, :].unsqueeze(-1)
+
+    comparison_fig_t = torchvision.utils.make_grid([img, pred_colormapped, mask_colormapped])
+    return comparison_fig_t

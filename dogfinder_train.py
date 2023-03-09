@@ -196,11 +196,7 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
 
             pred_amax = torch.argmax(pred_s, dim=1)
 
-            # awkwardly convert target and prediction tensors to numpy array, apply color map and convert them back
-            pred_colormapped = torch.tensor(cm.tab20(pred_amax[-1,:,:].cpu())[:,:,0:3]).permute(2, 0, 1)
-            mask_colormapped = torch.tensor(cm.tab20(mask[-1,0,:,:].cpu())[:,:,0:3]).permute(2, 0, 1)
-
-            comparison_fig_t = torchvision.utils.make_grid([inv_normalize(img[-1,:,:,:]).cpu(), pred_colormapped, mask_colormapped])
+            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(img[-1,:,:,:]), pred_amax[-1,:,:], mask=mask[-1,0,:,:])
 
             writer.add_image("PredictionComparison", comparison_fig_t, global_step=(epoch+1)*batch_size)
 
