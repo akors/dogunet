@@ -194,10 +194,14 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
             writer.add_scalar('Loss/val', epoch_val_loss, epoch)
             writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
 
-            pred_amax = torch.argmax(pred_s, dim=1)
+            # prepare comparison grid for the first three samples in dataset
+            val_imgs = torch.stack([ds_train[i][0] for i in range(3)]).to(device=device)
+            val_masks = torch.cat([ds_train[i][1] for i in range(3)]).to(device=device)
+            val_masks = torch.where(val_masks <= CLASS_MAX, val_masks, 0)
+            pred = model(val_imgs)
+            pred_amax = torch.argmax(pred, dim=1)
 
-            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(img[-1,:,:,:]), pred_amax[-1,:,:], mask=mask[-1,0,:,:])
-
+            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
             writer.add_image("PredictionComparison", comparison_fig_t, global_step=(epoch+1)*batch_size)
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")

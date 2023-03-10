@@ -46,16 +46,38 @@ def cm_to_tensor(cm: matplotlib.colors.ListedColormap):
 
 cm_tab20_t = cm_to_tensor(matplotlib.cm.tab20)
 
-def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    mask_colormapped = torch.zeros((3, *mask.shape[-2:]), device=mask.device)
-    for k in mask.to(dtype=torch.int64).unique():
-        pixels_in_class_idx = (mask == k)
-        mask_colormapped[:, pixels_in_class_idx] = cm_tab20_t.to(device=mask.device)[k, :].unsqueeze(-1)
-        
-    pred_colormapped = torch.zeros((3, *prediction.shape[-2:])).to(prediction.device)
-    for k in prediction.to(dtype=torch.int64).unique():
-        pixels_in_class_idx = (prediction == k)
-        pred_colormapped[:, pixels_in_class_idx] = cm_tab20_t.to(device=mask.device)[k, :].unsqueeze(-1)
+def classmask_to_colormask(mask: torch.Tensor, cm: matplotlib.colors.ListedColormap) -> torch.Tensor:
+    assert mask.dim() == 3, "Mask should be a 3D tensor with B x H x W"
 
-    comparison_fig_t = torchvision.utils.make_grid([img, pred_colormapped, mask_colormapped])
+    cm=cm.to(device=mask.device)
+
+    # create output tensor
+    mask_colormapped = torch.zeros((mask.shape[0], 3, *mask.shape[-2:]), device=mask.device)
+
+    # loop over all classes in mask
+    for k in mask.to(dtype=torch.int64).unique():
+        # get indices for all pixels in batch where the class equals k
+        pixels_in_class_idx = (mask == k).argwhere()
+
+        # insert current class color into dim 1 for all index tuples
+        mask_colormapped[pixels_in_class_idx[:, 0], :, pixels_in_class_idx[:, 1], pixels_in_class_idx[:, 2]] = \
+            cm[k, :].unsqueeze(0)
+
+    return mask_colormapped
+
+def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    assert img.size(-2) == prediction.size(-2) == mask.size(-2), "img, prediction, mask must have same height"
+    assert img.size(-1) == prediction.size(-1) == mask.size(-1), "img, prediction, mask must have same width"
+    assert img.size(0) == prediction.size(0) == mask.size(0), "img, prediction, mask must have same batch size"
+
+    cm = cm_tab20_t.to(mask.device)
+
+    pred_colormapped = classmask_to_colormask(mask=prediction, cm=cm)
+    mask_colormapped = classmask_to_colormask(mask=mask, cm=cm)
+
+    # stack up images
+    grid = torch.stack([img, pred_colormapped, mask_colormapped], dim=1)
+    grid = grid.view(img.shape[0]*3, cm.shape[1], img.shape[-2], img.shape[-1])
+
+    comparison_fig_t = torchvision.utils.make_grid(grid, nrow=3)
     return comparison_fig_t
