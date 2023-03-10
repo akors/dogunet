@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import matplotlib
@@ -82,7 +82,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model_name="dogunet"
 nproc=8
 
-def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch_freq: int=10):
+def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch_freq: int=10, resume: Optional[str]=None):
     matplotlib.use('Agg')
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
@@ -104,6 +104,8 @@ def train(num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch
 
     model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
         in_channels=3, out_channels=CLASS_MAX+1, init_features=32, pretrained=False)
+    if resume is not None:
+        model = torch.load(resume)
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
@@ -217,8 +219,14 @@ if __name__ == "__main__":
     parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
     parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
+    parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pth")
 
     args = parser.parse_args()
 
-
-    exit(train(num_epochs=args.epochs, batch_size=args.batchsize, learning_rate=args.learningrate, val_epoch_freq=args.validationfreq))
+    ret = train(num_epochs=args.epochs,
+        batch_size=args.batchsize,
+        learning_rate=args.learningrate,
+        val_epoch_freq=args.validationfreq,
+        resume=args.resume
+    )
+    exit(ret)
