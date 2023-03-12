@@ -127,9 +127,7 @@ def train(
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
     ds_train_len = len(ds_train)
-    #global_step = lambda: ds_train_len*epoch + batch_size * batch_idx
-    global_step = lambda: int(ds_train_len*epoch + (batch_size - (ds_train_len % batch_size / batch_size)) * batch_idx)
-
+    global_step = lambda: ds_train_len*epoch + batch_size * batch_idx
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         train_losses = list()
         train_accuracy = list()
