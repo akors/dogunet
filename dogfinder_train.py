@@ -122,9 +122,9 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
         train_accuracy = list()
         for batch in tqdm(train_dataloader, desc="Batches (train)", unit="batch"):
             img, mask = batch
-            img = img.to(device)
 
-            # bring mask to device
+            # bring sample to device
+            img = img.to(device=device)
             mask = mask.to(device=device)
 
             # TODO verify that mean of img ~= 0
@@ -133,11 +133,9 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
             pred = model(img)
             pred_s = torch.nn.functional.softmax(pred, dim=1)
 
-            # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
-            mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
             #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
             target_mask = torch.zeros_like(pred)
-            target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
+            target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
             loss = criterion(pred_s, target_mask)
             train_losses.append(loss.item())
@@ -148,10 +146,9 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
 
             with torch.no_grad():
                 # calculate pixel-wise annoation accuracy for all imgs in batch
-                acc = (mask.squeeze() == torch.argmax(pred, dim=1))
+                acc = (mask == torch.argmax(pred, dim=1))
                 acc = (acc.sum()/acc.numel()).item()
                 train_accuracy.append(acc)
-
 
         epoch_train_loss = np.mean(train_losses)
         epoch_train_accuracy = np.mean(train_accuracy)
@@ -167,25 +164,20 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
             with torch.no_grad():
                 for batch in tqdm(val_dataloader, desc="Batches (val)"):
                     img, mask = batch
-                    img = img.to(device)
-
-                    # bring mask to device
+                    img = img.to(device=device)
                     mask = mask.to(device=device)
-                    # clip all classes above 20 to zero, for example 255 is "border regions and difficult objects"
-                    mask = torch.where(mask <= CLASS_MAX, mask, 0).to(dtype=torch.long)
 
                     pred = model(img)
                     pred_s = torch.nn.functional.softmax(pred, dim=1)
 
-                    #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
                     target_mask = torch.zeros_like(pred)
-                    target_mask.scatter_(1, mask.to(dtype=torch.int64), 1.)
+                    target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
                     loss = criterion(pred_s, target_mask)
                     val_losses.append(loss.item())
 
                     # calculate pixel-wise annoation accuracy for alyl imgs in batch
-                    acc = (mask.squeeze() == torch.argmax(pred, dim=1))
+                    acc = (mask == torch.argmax(pred, dim=1))
                     acc = (acc.sum()/acc.numel()).item()
                     val_accuracy.append(acc)
 
@@ -196,9 +188,9 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
             writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
 
             # prepare comparison grid for the first three samples in dataset
-            val_imgs = torch.stack([ds_train[i][0] for i in range(3)]).to(device=device)
-            val_masks = torch.cat([ds_train[i][1] for i in range(3)]).to(device=device)
-            val_masks = torch.where(val_masks <= CLASS_MAX, val_masks, 0)
+            vis_samples = 3 # number of samples to visualize per image
+            val_imgs = torch.stack([ds_train[i][0] for i in range(vis_samples)]).to(device=device)
+            val_masks = torch.stack([ds_train[i][1] for i in range(vis_samples)]).to(device=device)
             pred = model(val_imgs)
             pred_amax = torch.argmax(pred, dim=1)
 

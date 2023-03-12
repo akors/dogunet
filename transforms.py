@@ -1,5 +1,6 @@
 
 from typing import List
+import torch
 import torchvision.transforms
 import torchvision.transforms.functional as F
 
@@ -39,6 +40,7 @@ class Resize_with_pad:
 # it was revealed to me in a dream
 PASCAL_VOC_2012_MEAN=[0.485, 0.456, 0.406]
 PASCAL_VOC_2012_STD=[0.229, 0.224, 0.225]
+PASCAL_VOC_2012_CLASS_MAX=20
 
 def input_transform(mean: List[float], std: List[float]):
     return torchvision.transforms.Compose([
@@ -51,6 +53,13 @@ def input_transform(mean: List[float], std: List[float]):
         #torchvision.transforms.ToTensor()
     ])
 
+class ClipMaskClasses():
+    def __init__(self, max_class: int) -> None:
+        self.max_class = max_class
+    
+    def __call__(self, x):
+        x = torch.where(x <= self.max_class, x, 0).to(dtype=torch.long)
+        return x
 
 def inv_normalize(mean, std):
     return torchvision.transforms.Normalize(mean=[-m / s for m, s in zip(mean, std)],
@@ -60,4 +69,6 @@ def target_transform():
     return torchvision.transforms.Compose([
         Resize_with_pad(256,256, interpolation=torchvision.transforms.InterpolationMode.NEAREST),
         torchvision.transforms.PILToTensor(),
+        torchvision.transforms.Lambda(lambda x: x[0,:,:].to(dtype=torch.int64)), # remove dim1, convert to integer
+        ClipMaskClasses(max_class=PASCAL_VOC_2012_CLASS_MAX)
     ])
