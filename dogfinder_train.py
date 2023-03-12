@@ -81,7 +81,15 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
 
-def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: float=None, val_epoch_freq: int=10, resume: Optional[str]=None):
+def train(
+    model_name: str,
+    num_epochs: int,
+    batch_size: int,
+    learning_rate: float=None,
+    val_epoch_freq: int=10,
+    resume: Optional[str]=None,
+    run_comment: str=""
+):
     matplotlib.use('Agg')
     # create datasets with our transforms. assume they're already downloaded
     ds_train = torchvision.datasets.VOCSegmentation(
@@ -114,7 +122,7 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
     criterion = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-    writer = SummaryWriter()
+    writer = SummaryWriter(comment=run_comment)
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
@@ -199,7 +207,19 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
+    # writer.add_hparams(
+    #     hparam_dict={
+    #         "lr" : learning_rate,
+    #         "batchsize": batch_size
+    #     },
+    #     metric_dict={
+    #         "ValidationLoss": epoch_val_loss,
+    #         "PixelAccuracy": epoch_val_accuracy
+    #     }
+    # )
+
     torch.save(model, model_name + ".pth")
+    writer.close()
     return 0
 
 if __name__ == "__main__":
@@ -212,6 +232,7 @@ if __name__ == "__main__":
     parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
     parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pth")
+    parser.add_argument('--runcomment', type=str, default="", help='Comment to append to the name in TensorBoard')
 
     args = parser.parse_args()
 
@@ -221,6 +242,7 @@ if __name__ == "__main__":
         batch_size=args.batchsize,
         learning_rate=args.learningrate,
         val_epoch_freq=args.validationfreq,
-        resume=args.resume
+        resume=args.resume,
+        run_comment=args.runcomment
     )
     exit(ret)
