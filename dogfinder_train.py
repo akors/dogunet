@@ -161,8 +161,8 @@ def train(
         epoch_train_loss = np.mean(train_losses)
         epoch_train_accuracy = np.mean(train_accuracy)
 
-        writer.add_scalar('Loss/train', epoch_train_loss, epoch)
-        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, epoch)
+        writer.add_scalar('Loss/train', epoch_train_loss, global_step=(epoch+1)*batch_size)
+        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, global_step=(epoch+1)*batch_size)
 
         tqdm.write(f"Epoch {epoch+1}; training loss={epoch_train_loss:.4f}; training pixel accuracy={epoch_train_accuracy:.3f}")
 
