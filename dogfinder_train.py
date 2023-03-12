@@ -128,14 +128,17 @@ def train(
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         train_losses = list()
         train_accuracy = list()
-        for batch in tqdm(train_dataloader, desc="Batches (train)", unit="batch"):
+        for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
 
             # bring sample to device
-            img = img.to(device=device)
-            mask = mask.to(device=device)
+            img: torch.Tensor = img.to(device=device)
+            mask: torch.Tensor = mask.to(device=device)
 
-            # TODO verify that mean of img ~= 0
+            img_std, img_mean = torch.std_mean(img)
+            writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=epoch*batch_size+batch_idx)
+            writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=epoch*batch_size+batch_idx)
+
             # TODO plot img, mask into tensorboard for testing
 
             pred = model(img)
