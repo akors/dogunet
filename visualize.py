@@ -9,6 +9,7 @@ def imshow_tensor(img: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=None):
     img = img.permute(1, 2, 0).numpy()
     if ax is None:
         ax = plt
+    ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
     return ax.imshow(img)
 
 def imshow_mask_tensor(mask: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=None):
