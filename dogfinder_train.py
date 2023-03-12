@@ -80,6 +80,7 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
+input_debug=False
 
 def train(
     model_name: str,
@@ -125,6 +126,10 @@ def train(
     writer = SummaryWriter(comment=run_comment)
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
+    ds_train_len = len(ds_train)
+    #global_step = lambda: ds_train_len*epoch + batch_size * batch_idx
+    global_step = lambda: int(ds_train_len*epoch + (batch_size - (ds_train_len % batch_size / batch_size)) * batch_idx)
+
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         train_losses = list()
         train_accuracy = list()
@@ -135,11 +140,21 @@ def train(
             img: torch.Tensor = img.to(device=device)
             mask: torch.Tensor = mask.to(device=device)
 
-            img_std, img_mean = torch.std_mean(img)
-            writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=epoch*batch_size+batch_idx)
-            writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=epoch*batch_size+batch_idx)
+            if input_debug:
+                img_std, img_mean = torch.std_mean(img)
+                writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=global_step())
+                writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=global_step())
 
-            # TODO plot img, mask into tensorboard for testing
+                # TODO plot img, mask into tensorboard for testing
+                if batch_idx == 0:
+                    dbg_input_len = min(img.size(0), 4)
+                    dbg_input_img = img[0:dbg_input_len,:,:,:]
+                    dbg_input_mask = visualize.classmask_to_colormask(mask[0:dbg_input_len,:,:])
+
+                    dbg_input_grid = torchvision.utils.make_grid(
+                        torch.cat((dbg_input_img, dbg_input_mask), dim=0),
+                        nrow=dbg_input_len)
+                    writer.add_image("DbgTrainInput", dbg_input_grid, global_step=global_step())
 
             pred = model(img)
             pred_s = torch.nn.functional.softmax(pred, dim=1)
@@ -164,8 +179,8 @@ def train(
         epoch_train_loss = np.mean(train_losses)
         epoch_train_accuracy = np.mean(train_accuracy)
 
-        writer.add_scalar('Loss/train', epoch_train_loss, global_step=(epoch+1)*batch_size)
-        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, global_step=(epoch+1)*batch_size)
+        writer.add_scalar('Loss/train', epoch_train_loss, global_step=global_step())
+        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, global_step=global_step())
 
         tqdm.write(f"Epoch {epoch+1}; training loss={epoch_train_loss:.4f}; training pixel accuracy={epoch_train_accuracy:.3f}")
 
@@ -195,8 +210,8 @@ def train(
             epoch_val_loss = np.mean(val_losses)
             epoch_val_accuracy = np.mean(val_accuracy)
 
-            writer.add_scalar('Loss/val', epoch_val_loss, epoch)
-            writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, epoch)
+            writer.add_scalar('Loss/val', epoch_val_loss, global_step=global_step())
+            writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, global_step=global_step())
 
             # prepare comparison grid for the first three samples in dataset
             vis_samples = 3 # number of samples to visualize per image
@@ -206,7 +221,7 @@ def train(
             pred_amax = torch.argmax(pred, dim=1)
 
             comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
-            writer.add_image("PredictionComparison", comparison_fig_t, global_step=(epoch+1)*batch_size)
+            writer.add_image("PredictionComparison", comparison_fig_t, global_step=global_step())
 
             tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
 
