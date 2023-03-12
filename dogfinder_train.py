@@ -87,12 +87,12 @@ def train(model_name: str, num_epochs: int, batch_size: int, learning_rate: floa
     ds_train = torchvision.datasets.VOCSegmentation(
         root="./data/", year="2012", image_set="train", download=False,
         transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
-        target_transform=transforms.target_transform()
+        target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
     )
     ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
         year="2012", image_set="val", download=False,
         transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
-        target_transform=transforms.target_transform()
+        target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
     )
 
     # needed for visualization

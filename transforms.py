@@ -65,10 +65,10 @@ def inv_normalize(mean, std):
     return torchvision.transforms.Normalize(mean=[-m / s for m, s in zip(mean, std)],
                                 std=[1 / s for s in std])
 
-def target_transform():
+def target_transform(max_class: int):
     return torchvision.transforms.Compose([
         Resize_with_pad(256,256, interpolation=torchvision.transforms.InterpolationMode.NEAREST),
         torchvision.transforms.PILToTensor(),
-        torchvision.transforms.Lambda(lambda x: x[0,:,:].to(dtype=torch.int64)), # remove dim1, convert to integer
-        ClipMaskClasses(max_class=PASCAL_VOC_2012_CLASS_MAX)
+        torchvision.transforms.Lambda(lambda x: x[0,:,:].to(dtype=torch.int64)), # remove dim1, convert to index type
+        ClipMaskClasses(max_class=max_class)
     ])
