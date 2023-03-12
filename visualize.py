@@ -16,6 +16,7 @@ def imshow_mask_tensor(mask: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=No
     mask = mask.permute(0, 1).numpy()
     if ax is None:
         ax = plt
+    ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
     return ax.imshow(mask, cmap='tab20', interpolation_stage='rgba')
 
 def plot_prediction_comparison(img: torch.Tensor, prediction_mask: torch.Tensor, target_mask: torch.Tensor):
