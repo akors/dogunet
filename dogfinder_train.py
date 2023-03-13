@@ -199,7 +199,8 @@ def train(
                     target_mask = torch.zeros_like(pred)
                     target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
-                    loss = criterion(pred_s, target_mask)
+                    loss = (1.-boundary_loss_weight) * criterion(pred_s, target_mask) \
+                        + boundary_loss_weight * criterion_boundaries(pred_s, target_mask)
                     val_losses.append(loss.item())
 
                     # calculate pixel-wise annoation accuracy for alyl imgs in batch
