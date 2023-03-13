@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
@@ -127,11 +128,21 @@ def train(
     writer = SummaryWriter(comment=run_comment)
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
+    # initialize epoch metrics
+    epoch_metrics = {m : np.empty((len(train_dataloader),)) for m in [
+        "Loss/train/total",
+        "Loss/train/pixelclass",
+        "Loss/train/boundary",
+        "Accuracy/train/pixelwise",
+        "Loss/val/total",
+        "Loss/val/pixelclass",
+        "Loss/val/boundary",
+        "Accuracy/val/pixelwise",
+    ]}
+
     ds_train_len = len(ds_train)
     global_step = lambda: ds_train_len*epoch + batch_size * batch_idx
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
-        train_losses = list()
-        train_accuracy = list()
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
 
@@ -162,9 +173,15 @@ def train(
             target_mask = torch.zeros_like(pred)
             target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
-            loss = (1.-boundary_loss_weight) * criterion(pred_s, target_mask) \
-                + boundary_loss_weight * criterion_boundaries(pred_s, target_mask)
-            train_losses.append(loss.item())
+            # compose loss by boundary loss and pixel classification
+            loss_pixelclass = criterion(pred_s, target_mask)
+            loss_boundary = criterion_boundaries(pred_s, target_mask)
+
+            loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+
+            epoch_metrics['Loss/train/total'][batch_idx] = loss.item()
+            epoch_metrics['Loss/train/pixelclass'][batch_idx] = loss_pixelclass.item()
+            epoch_metrics['Loss/train/boundary'][batch_idx] = loss_boundary.item()
             
             optimizer.zero_grad()
             loss.backward()
@@ -173,22 +190,22 @@ def train(
             with torch.no_grad():
                 # calculate pixel-wise annoation accuracy for all imgs in batch
                 acc = (mask == torch.argmax(pred, dim=1))
-                acc = (acc.sum()/acc.numel()).item()
-                train_accuracy.append(acc)
+                acc = (acc.sum()/acc.numel())
+                epoch_metrics['Accuracy/train/pixelwise'][batch_idx] = acc.item()
 
-        epoch_train_loss = np.mean(train_losses)
-        epoch_train_accuracy = np.mean(train_accuracy)
+        for metric_name, metric_values in epoch_metrics.items():
+            if "/train/" not in metric_name:
+                continue # only writing training metrics at this point
 
-        writer.add_scalar('Loss/train', epoch_train_loss, global_step=global_step())
-        writer.add_scalar('PixelAccuracy/train', epoch_train_accuracy, global_step=global_step())
+            metric_value = np.nanmean(metric_values)
+            writer.add_scalar(metric_name, metric_value, global_step=global_step())
 
-        tqdm.write(f"Epoch {epoch+1}; training loss={epoch_train_loss:.4f}; training pixel accuracy={epoch_train_accuracy:.3f}")
+        tqdm.write(f"Epoch {epoch+1}; Loss/train/total={np.nanmean(epoch_metrics['Loss/train/total']):.4f};" +
+            f"Accuracy/train/pixelwise={np.nanmean(epoch_metrics['Accuracy/train/pixelwise']):.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1:
-            val_losses = list()
-            val_accuracy = list()
             with torch.no_grad():
-                for batch in tqdm(val_dataloader, desc="Batches (val)"):
+                for val_batch_idx, batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
                     img, mask = batch
                     img = img.to(device=device)
                     mask = mask.to(device=device)
@@ -199,20 +216,27 @@ def train(
                     target_mask = torch.zeros_like(pred)
                     target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
-                    loss = (1.-boundary_loss_weight) * criterion(pred_s, target_mask) \
-                        + boundary_loss_weight * criterion_boundaries(pred_s, target_mask)
-                    val_losses.append(loss.item())
+                    # compose loss by boundary loss and pixel classification
+                    loss_pixelclass = criterion(pred_s, target_mask)
+                    loss_boundary = criterion_boundaries(pred_s, target_mask)
+
+                    loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+
+                    epoch_metrics['Loss/val/total'][val_batch_idx] = loss.item()
+                    epoch_metrics['Loss/val/pixelclass'][val_batch_idx] = loss_pixelclass.item()
+                    epoch_metrics['Loss/val/boundary'][val_batch_idx] = loss_boundary.item()
 
                     # calculate pixel-wise annoation accuracy for alyl imgs in batch
                     acc = (mask == torch.argmax(pred, dim=1))
-                    acc = (acc.sum()/acc.numel()).item()
-                    val_accuracy.append(acc)
+                    acc = (acc.sum()/acc.numel())
+                    epoch_metrics['Accuracy/val/pixelwise'][val_batch_idx] = acc.item()
 
-            epoch_val_loss = np.mean(val_losses)
-            epoch_val_accuracy = np.mean(val_accuracy)
+            for metric_name, metric_values in epoch_metrics.items():
+                if "/val/" not in metric_name:
+                    continue # only writing validation metrics at this point
 
-            writer.add_scalar('Loss/val', epoch_val_loss, global_step=global_step())
-            writer.add_scalar('PixelAccuracy/val', epoch_val_accuracy, global_step=global_step())
+                metric_value = np.nanmean(metric_values)
+                writer.add_scalar(metric_name, metric_value, global_step=global_step())
 
             # prepare comparison grid for the first three samples in dataset
             vis_samples = 3 # number of samples to visualize per image
@@ -224,7 +248,8 @@ def train(
             comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
             writer.add_image("PredictionComparison", comparison_fig_t, global_step=global_step())
 
-            tqdm.write(f"Epoch {epoch+1}; validation loss={epoch_val_loss:.3f}; validation pixel accuracy={epoch_val_accuracy:.3f}")
+            tqdm.write(f"Epoch {epoch+1}; 'Loss/val/total'={np.nanmean(epoch_metrics['Loss/val/total']):.4f}; " +
+                f"Accuracy/val/pixelwise={np.nanmean(epoch_metrics['Accuracy/val/pixelwise']):.3f}")
 
     # writer.add_hparams(
     #     hparam_dict={
