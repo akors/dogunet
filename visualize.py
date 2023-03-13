@@ -48,7 +48,7 @@ def cm_to_tensor(cm: matplotlib.colors.ListedColormap):
 
 cm_tab20_t = cm_to_tensor(matplotlib.cm.tab20)
 
-def classmask_to_colormask(mask: torch.Tensor, cm: matplotlib.colors.ListedColormap) -> torch.Tensor:
+def classmask_to_colormask(mask: torch.Tensor, cm: torch.Tensor = cm_tab20_t) -> torch.Tensor:
     assert mask.dim() == 3, "Mask should be a 3D tensor with B x H x W"
 
     cm=cm.to(device=mask.device)
