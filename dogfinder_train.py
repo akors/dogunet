@@ -81,6 +81,7 @@ def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
 input_debug=False
+boundary_loss_weight=0.5
 
 def train(
     model_name: str,
@@ -119,8 +120,8 @@ def train(
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
-    #criterion = torch.nn.CrossEntropyLoss()
-    criterion = DiceLoss()
+    criterion = torch.nn.CrossEntropyLoss()
+    criterion_boundaries = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     writer = SummaryWriter(comment=run_comment)
@@ -161,7 +162,8 @@ def train(
             target_mask = torch.zeros_like(pred)
             target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
-            loss = criterion(pred_s, target_mask)
+            loss = (1.-boundary_loss_weight) * criterion(pred_s, target_mask) \
+                + boundary_loss_weight * criterion_boundaries(pred_s, target_mask)
             train_losses.append(loss.item())
             
             optimizer.zero_grad()
