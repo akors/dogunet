@@ -1,0 +1,3 @@
+[submodule "brain_segmentation_pytorch"]
+	path = brain_segmentation_pytorch
+	url = https://github.com/mateuszbuda/brain-segmentation-pytorch.git

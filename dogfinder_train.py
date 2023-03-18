@@ -5,7 +5,6 @@ from typing import Iterable, List, Optional, Tuple
 
 import numpy as np
 import matplotlib
-from matplotlib import cm
 
 import torch
 import torch.cuda
@@ -13,6 +12,12 @@ import torch.optim
 import torch.utils.data
 import torchvision.datasets
 import torchvision.utils
+
+from brain_segmentation_pytorch.loss import DiceLoss
+import brain_segmentation_pytorch.unet
+
+# for compatibility with old checkpoints
+from brain_segmentation_pytorch import unet
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -53,23 +58,6 @@ def dog_only(target):
     return dogness
 
 
-# shamelessly stolen from https://github.com/mateuszbuda/brain-segmentation-pytorch/blob/master/loss.py
-class DiceLoss(torch.nn.Module):
-    def __init__(self):
-        super(DiceLoss, self).__init__()
-        self.smooth = 1.0
-
-    def forward(self, y_pred, y_true):
-        assert y_pred.size() == y_true.size()
-        y_pred = y_pred[:, 0].contiguous().view(-1)
-        y_true = y_true[:, 0].contiguous().view(-1)
-        intersection = (y_pred * y_true).sum()
-        dsc = (2. * intersection + self.smooth) / (
-            y_pred.sum() + y_true.sum() + self.smooth
-        )
-        return 1. - dsc
-
-
 def find_nonzero_masks(ds_iter: Iterable[Tuple[torch.Tensor, torch.Tensor]]) -> List:
     nonzero_masks = list()
     for idx, sample in enumerate(ds_iter):
@@ -83,6 +71,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
 input_debug=False
 boundary_loss_weight=0.5
+unet_features=32
 
 def train(
     model_name: str,
@@ -112,9 +101,13 @@ def train(
     print(f"len(ds_train): {len(ds_train)}")
     print(f"len(ds_val): {len(ds_val)}")
 
-    model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
-        in_channels=3, out_channels=CLASS_MAX+1, init_features=32, pretrained=False)
-    if resume is not None:
+    if resume is None:
+        model = brain_segmentation_pytorch.unet.UNet(
+            in_channels=3,
+            out_channels=CLASS_MAX+1,
+            init_features=unet_features,
+        )
+    else:
         model = torch.load(resume)
     model = model.to(device)
 
