@@ -97,6 +97,7 @@ nproc=8
 input_debug=False
 boundary_loss_weight=0.5
 unet_features=32
+write_hparams=False
 
 def train(
     model_name: str,
@@ -269,18 +270,18 @@ def train(
             tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
                 f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
 
-    writer.add_hparams(
-        hparam_dict={
-            "lr" : learning_rate,
-            "batchsize": batch_size,
-            "features": unet_features
-        },
-        metric_dict={
-            "ValidationLoss": metrics_val_epoch.get('Loss/val/total'),
-            "PixelAccuracy": metrics_val_epoch.get('Accuracy/val/pixelwise')
-        },
-        run_name=run_comment
-    )
+    if write_hparams:
+        writer.add_hparams(
+            hparam_dict={
+                "lr" : learning_rate,
+                "batchsize": batch_size,
+                "features": unet_features
+            },
+            metric_dict={
+                "ValidationLoss": metrics_val_epoch.get('Loss/val/total'),
+                "PixelAccuracy": metrics_val_epoch.get('Accuracy/val/pixelwise')
+            }
+        )
 
     torch.save(model, model_name + ".pth")
     writer.close()
