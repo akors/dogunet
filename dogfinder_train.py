@@ -134,7 +134,10 @@ def train(
     ]}
 
     ds_train_len = len(ds_train)
-    global_step = lambda: ds_train_len*epoch + batch_size * batch_idx
+    global_step = lambda: (
+        ds_train_len*epoch + batch_size * (batch_idx+1)
+        - batch_size + batch[0].size(0)
+    )
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
@@ -198,8 +201,8 @@ def train(
 
         if epoch % val_epoch_freq == val_epoch_freq - 1:
             with torch.no_grad():
-                for val_batch_idx, batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
-                    img, mask = batch
+                for val_batch_idx, val_batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
+                    img, mask = val_batch
                     img = img.to(device=device)
                     mask = mask.to(device=device)
 
