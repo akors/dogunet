@@ -99,6 +99,31 @@ boundary_loss_weight=0.5
 unet_features=32
 write_hparams=False
 
+def make_datasets(datadir: str="./data/", use_2012=True, use_2007=False):
+    assert use_2007 or use_2012, "Please select one or both of the datasets"
+    ds_train_list = list()
+    ds_val_list = list()
+
+    if use_2012:
+        # create datasets with our transforms. assume they're already downloaded
+        ds_train_list.append(torchvision.datasets.VOCSegmentation(
+            root=datadir, year="2012", image_set="train", download=False,
+            transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
+            target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
+        ))
+        ds_val_list.append(torchvision.datasets.VOCSegmentation(
+            root=datadir,
+            year="2012", image_set="val", download=False,
+            transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
+            target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
+        ))
+
+    ds_train = torch.utils.data.ConcatDataset(ds_train_list)
+    ds_val = torch.utils.data.ConcatDataset(ds_val_list)
+
+    return ds_train, ds_val
+
+
 def train(
     model_name: str,
     num_epochs: int,
@@ -109,23 +134,13 @@ def train(
     run_comment: str=""
 ):
     matplotlib.use('Agg')
-    # create datasets with our transforms. assume they're already downloaded
-    ds_train = torchvision.datasets.VOCSegmentation(
-        root="./data/", year="2012", image_set="train", download=False,
-        transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
-        target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
-    )
-    ds_val = torchvision.datasets.VOCSegmentation(root="./data/",
-        year="2012", image_set="val", download=False,
-        transform=transforms.input_transform(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD),
-        target_transform=transforms.target_transform(max_class=transforms.PASCAL_VOC_2012_CLASS_MAX)
-    )
+
+    ds_train, ds_val = make_datasets()
+    print(f"Training datset length: {len(ds_train)}")
+    print(f"Validation datset length: {len(ds_val)}")
 
     # needed for visualization
     inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
-
-    print(f"len(ds_train): {len(ds_train)}")
-    print(f"len(ds_val): {len(ds_val)}")
 
     if resume is None:
         model = brain_segmentation_pytorch.unet.UNet(
