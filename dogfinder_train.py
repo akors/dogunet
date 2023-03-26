@@ -278,7 +278,7 @@ def train(
 
             metrics_val_epoch.write(global_step=global_step())
 
-            # prepare comparison grid for the first three samples in dataset
+            # prepare comparison grid for the first three samples in training dataset
             vis_samples = 3 # number of samples to visualize per image
             val_imgs = torch.stack([ds_train[i][0] for i in range(vis_samples)]).to(device=device)
             val_masks = torch.stack([ds_train[i][1] for i in range(vis_samples)]).to(device=device)
@@ -286,7 +286,17 @@ def train(
             pred_amax = torch.argmax(pred, dim=1)
 
             comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
-            writer.add_image("PredictionComparison", comparison_fig_t, global_step=global_step())
+            writer.add_image("PredictionComparison/train", comparison_fig_t, global_step=global_step())
+
+            # prepare comparison grid for the first three samples in training dataset
+            val_imgs = torch.stack([ds_val[i][0] for i in range(vis_samples)]).to(device=device)
+            val_masks = torch.stack([ds_val[i][1] for i in range(vis_samples)]).to(device=device)
+            pred = model(val_imgs)
+            pred_amax = torch.argmax(pred, dim=1)
+
+            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
+            writer.add_image("PredictionComparison/val", comparison_fig_t, global_step=global_step())
+
 
             tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
                 f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
