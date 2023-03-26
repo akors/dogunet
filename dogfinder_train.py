@@ -168,6 +168,9 @@ def train(
         - batch_size + batch[0].size(0)
     )
     for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
+        # ensure model is in trianing mode
+        model = model.train()
+
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
 
@@ -226,6 +229,9 @@ def train(
             f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1:
+            # use eval mode for validation, disabled batchnorm layers?
+            model = model.eval()
+
             with torch.no_grad():
                 for val_batch_idx, val_batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
                     img, mask = val_batch
