@@ -296,24 +296,26 @@ def train(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description='Your script description here')
-    parser.add_argument('--modelname', type=str, default="dogunet", help="Base name of the output file")
+    parser = argparse.ArgumentParser(description='Train dogunet network')
+    parser.add_argument('--name', type=str, default="dogunet", help="Name of the model, used ")
     parser.add_argument('--epochs', type=int, default=20, help='Number of epochs to train (default: 20)')
     parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
     parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
-    parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pth")
+    parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pt")
     parser.add_argument('--runcomment', type=str, default="", help='Comment to append to the name in TensorBoard')
+    #parser.add_argument('outfilename', default="dogunet.checkpoint.pt", help="Name of the output file")
 
     args = parser.parse_args()
 
     ret = train(
-        model_name=args.modelname,
+        model_name=args.name,
         num_epochs=args.epochs,
         batch_size=args.batchsize,
         learning_rate=args.learningrate,
         val_epoch_freq=args.validationfreq,
         resume=args.resume,
-        run_comment=args.runcomment
+        run_comment=args.runcomment,
+        #outfilename=args.outfilename
     )
     exit(ret)
