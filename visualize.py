@@ -67,19 +67,28 @@ def classmask_to_colormask(mask: torch.Tensor, cm: torch.Tensor = cm_tab20_t) ->
 
     return mask_colormapped
 
-def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-    assert img.size(-2) == prediction.size(-2) == mask.size(-2), "img, prediction, mask must have same height"
-    assert img.size(-1) == prediction.size(-1) == mask.size(-1), "img, prediction, mask must have same width"
-    assert img.size(0) == prediction.size(0) == mask.size(0), "img, prediction, mask must have same batch size"
+def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: Optional[torch.Tensor]=None) -> torch.Tensor:
+    assert img.size(-2) == prediction.size(-2), "img, prediction must have same height"
+    assert img.size(-1) == prediction.size(-1), "img, prediction must have same width"
+    assert img.size(0) == prediction.size(0), "img, prediction must have same batch size"
 
-    cm = cm_tab20_t.to(mask.device)
+    if mask is not None:
+        assert img.size(-2) == mask.size(-2), "img, mask must have same height"
+        assert img.size(-1) == mask.size(-1), "img, mask must have same width"
+        assert img.size(0) == mask.size(0), "img, mask must have same batch size"
+
+    cm = cm_tab20_t.to(prediction.device)
 
     pred_colormapped = classmask_to_colormask(mask=prediction, cm=cm)
-    mask_colormapped = classmask_to_colormask(mask=mask, cm=cm)
 
+    imglist = [img, pred_colormapped]
+    if mask is not None:
+        mask_colormapped = classmask_to_colormask(mask=mask, cm=cm)
+        imglist.append(mask_colormapped)
+        
     # stack up images
-    grid = torch.stack([img, pred_colormapped, mask_colormapped], dim=1)
-    grid = grid.view(img.shape[0]*3, cm.shape[1], img.shape[-2], img.shape[-1])
+    grid = torch.stack(imglist, dim=1)
+    grid = grid.view(img.shape[0]*len(imglist), cm.shape[1], img.shape[-2], img.shape[-1])
 
-    comparison_fig_t = torchvision.utils.make_grid(grid, nrow=3)
+    comparison_fig_t = torchvision.utils.make_grid(grid, nrow=len(imglist))
     return comparison_fig_t
