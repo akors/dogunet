@@ -16,9 +16,6 @@ import torchvision.utils
 from brain_segmentation_pytorch.loss import DiceLoss
 import brain_segmentation_pytorch.unet
 
-# for compatibility with old checkpoints
-from brain_segmentation_pytorch import unet
-
 from torch.utils.tensorboard import SummaryWriter
 
 from tqdm import tqdm
@@ -142,14 +139,13 @@ def train(
     # needed for visualization
     inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
 
-    if resume is None:
-        model = brain_segmentation_pytorch.unet.UNet(
-            in_channels=3,
-            out_channels=CLASS_MAX+1,
-            init_features=unet_features,
-        )
-    else:
-        model = torch.load(resume)
+    model = brain_segmentation_pytorch.unet.UNet(
+        in_channels=3,
+        out_channels=CLASS_MAX+1,
+        init_features=unet_features,
+    )
+    if resume is not None:
+        model.load_state_dict(torch.load(resume))
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
@@ -314,7 +310,7 @@ def train(
             }
         )
 
-    torch.save(model, model_name + ".pth")
+    torch.save(model.state_dict(), model_name + ".pt")
     writer.close()
     return 0
 
