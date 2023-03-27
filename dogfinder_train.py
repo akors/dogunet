@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re
+import shutil
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
@@ -128,24 +129,35 @@ def train(
     learning_rate: float=None,
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
-    run_comment: str=""
+    run_comment: str="",
+    checkpointfreq: int=0
 ):
     matplotlib.use('Agg')
 
     ds_train, ds_val = make_datasets()
-    print(f"Training datset length: {len(ds_train)}")
-    print(f"Validation datset length: {len(ds_val)}")
+    print(f"Training dataset length: {len(ds_train)}")
+    print(f"Validation dataset length: {len(ds_val)}")
+
+    if checkpointfreq != 0:
+        print(f"Writing checkpoints to {model_name}.chpt*.pt and {model_name}.chpt.pt")
 
     # needed for visualization
     inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
+
 
     model = brain_segmentation_pytorch.unet.UNet(
         in_channels=3,
         out_channels=CLASS_MAX+1,
         init_features=unet_features,
     )
+
+    checkpoint = None
     if resume is not None:
-        model.load_state_dict(torch.load(resume))
+        # load checkpoint when resuming
+        checkpoint = torch.load(resume)
+
+        model.load_state_dict(checkpoint['model_state_dict'])
+
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
@@ -154,6 +166,13 @@ def train(
     criterion = torch.nn.CrossEntropyLoss()
     criterion_boundaries = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+    resume_epoch = 0
+    if checkpoint is not None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        resume_epoch = checkpoint['epoch']
+
+        del checkpoint # not needed after this points
 
     writer = SummaryWriter(comment=run_comment)
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
@@ -178,7 +197,7 @@ def train(
         ds_train_len*epoch + batch_size * (batch_idx+1)
         - batch_size + batch[0].size(0)
     )
-    for epoch in tqdm(range(num_epochs), desc="Epochs", unit="epochs"):
+    for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
         # ensure model is in trianing mode
         model = model.train()
 
@@ -236,10 +255,22 @@ def train(
 
         metrics_train_epoch.write(global_step=global_step())
 
+        if epoch % checkpointfreq == checkpointfreq-1:
+            # if checkpointing is enabled, save final training checkpoint
+            out_checkpoint = {
+                'batch_size': batch_size,
+                'epoch': epoch+1,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': loss
+            }
+            torch.save(out_checkpoint, f"{model_name}.chpt.pt") # save current/final
+            shutil.copy2(f"{model_name}.chpt.pt", f"{model_name}.chpt{epoch+1}.pt") # copy to intermediate checkpoint
+
         tqdm.write(f"Epoch {epoch+1}; Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
             f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
 
-        if epoch % val_epoch_freq == val_epoch_freq - 1:
+        if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
             # use eval mode for validation, disabled batchnorm layers?
             model = model.eval()
 
@@ -293,10 +324,22 @@ def train(
             comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
             writer.add_image("PredictionComparison/val", comparison_fig_t, global_step=global_step())
 
-
             tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
                 f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
-
+            
+            pass # if validating
+            
+    if checkpointfreq == -1:
+        # if checkpointing is enabled, save final training checkpoint
+        out_checkpoint = {
+            'batch_size': batch_size,
+            'epoch': epoch+1,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss
+        }
+        torch.save(out_checkpoint, f"{model_name}.chpt.pt") # save final
+    
     if write_hparams:
         writer.add_hparams(
             hparam_dict={
@@ -318,14 +361,16 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Train dogunet network')
-    parser.add_argument('--name', type=str, default="dogunet", help="Name of the model, used ")
-    parser.add_argument('--epochs', type=int, default=20, help='Number of epochs to train (default: 20)')
+    parser.add_argument('-n', '--name', type=str, default="dogunet",
+                        help="Name of the model, used for model state, checkpoint and TB run name.")
+    parser.add_argument('--epochs', type=int, default=20,
+                        help='Number of epochs to train (default: 20)')
     parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
     parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
     parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pt")
-    parser.add_argument('--runcomment', type=str, default="", help='Comment to append to the name in TensorBoard')
-    #parser.add_argument('outfilename', default="dogunet.checkpoint.pt", help="Name of the output file")
+    parser.add_argument('--runcomment', type=str, default="", help="Comment to append to the name in TensorBoard")
+    parser.add_argument('--checkpointfreq', type=int, default=-1, help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
 
     args = parser.parse_args()
 
@@ -337,6 +382,6 @@ if __name__ == "__main__":
         val_epoch_freq=args.validationfreq,
         resume=args.resume,
         run_comment=args.runcomment,
-        #outfilename=args.outfilename
+        checkpointfreq=args.checkpointfreq
     )
     exit(ret)
