@@ -88,7 +88,45 @@ class MetricsWriter():
         self.__current_step = 0
         for samples in self.__scalar_metrics.values():
             samples.fill(np.nan)
-        
+
+class CheckpointSaver:
+    def __init__(self, basepath: str,
+                 model: torch.nn.Module, optimizer: torch.optim.Optimizer, batch_size: int, checkpoint_freq: int) -> None:
+        self.__basepath: str = basepath
+        self.__model: torch.nn.Module = model
+        self.__optimizer: torch.optim.Optimizer = optimizer
+        self.__batch_size: int = batch_size
+        self.__checkpoint_freq = checkpoint_freq
+
+        self.__disable = checkpoint_freq == 0
+
+    def save_now(self, epoch: int, numbered_chpt: bool = False):
+        if self.__checkpoint_freq < 0:
+            return
+
+        # if checkpointing is enabled, save final training checkpoint
+        out_checkpoint = {
+            'batch_size': self.__batch_size,
+            'epoch': epoch+1,
+            'model_state_dict': self.__model.state_dict(),
+            'optimizer_state_dict': self.__optimizer.state_dict()
+        }
+
+        torch.save(out_checkpoint, self.__basepath + ".chpt.pt") # save current/final
+
+        if numbered_chpt:
+            # copy to numbered checkpoint if requested
+            shutil.copy2(f"{self.__basepath}.chpt.pt", f"{self.__basepath}.chpt{epoch+1}.pt")
+
+    def save_if_needed(self, epoch: int, numbered_chpt: bool = False):
+        if self.__checkpoint_freq < 1:
+            return
+
+        if epoch % self.__checkpoint_freq == self.__checkpoint_freq-1:
+            self.save_now(epoch=epoch, numbered_chpt=numbered_chpt)
+        else:
+            pass # don't save if it's not time yet
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
@@ -167,12 +205,19 @@ def train(
     criterion_boundaries = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+    if checkpointfreq != 0:
+        chpt_saver = CheckpointSaver(basepath=model_name, model=model, optimizer=optimizer,
+                                     batch_size=batch_size, checkpoint_freq=checkpointfreq)
+    else:
+        chpt_saver = None
+
     resume_epoch = 0
     if checkpoint is not None:
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         resume_epoch = checkpoint['epoch']
 
         del checkpoint # not needed after this points
+        print(f"Resuming training from checkpoint {resume} at epoch {resume_epoch}")
 
     writer = SummaryWriter(comment=run_comment)
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
@@ -198,8 +243,8 @@ def train(
         - batch_size + batch[0].size(0)
     )
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
-        # ensure model is in trianing mode
-        model = model.train()
+        # ensure model is in training mode
+        model.train(True)
 
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
@@ -255,24 +300,15 @@ def train(
 
         metrics_train_epoch.write(global_step=global_step())
 
-        if epoch % checkpointfreq == checkpointfreq-1:
-            # if checkpointing is enabled, save final training checkpoint
-            out_checkpoint = {
-                'batch_size': batch_size,
-                'epoch': epoch+1,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss
-            }
-            torch.save(out_checkpoint, f"{model_name}.chpt.pt") # save current/final
-            shutil.copy2(f"{model_name}.chpt.pt", f"{model_name}.chpt{epoch+1}.pt") # copy to intermediate checkpoint
+        if checkpointfreq > 0:
+            chpt_saver.save_if_needed(epoch, numbered_chpt=True)
 
         tqdm.write(f"Epoch {epoch+1}; Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
             f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
             # use eval mode for validation, disabled batchnorm layers?
-            model = model.eval()
+            model.train(False)
 
             with torch.no_grad():
                 for val_batch_idx, val_batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
@@ -328,18 +364,7 @@ def train(
                 f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
             
             pass # if validating
-            
-    if checkpointfreq == -1:
-        # if checkpointing is enabled, save final training checkpoint
-        out_checkpoint = {
-            'batch_size': batch_size,
-            'epoch': epoch+1,
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss
-        }
-        torch.save(out_checkpoint, f"{model_name}.chpt.pt") # save final
-    
+
     if write_hparams:
         writer.add_hparams(
             hparam_dict={
@@ -353,7 +378,13 @@ def train(
             }
         )
 
+    # save training checkpoint
+    if checkpointfreq != 0:
+        chpt_saver.save_now(epoch)
+
+    # save model parameters only
     torch.save(model.state_dict(), model_name + ".pt")
+
     writer.close()
     return 0
 
