@@ -1,5 +1,5 @@
 import functools
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -51,4 +51,42 @@ class ActivationsLogger():
     def clear(self):
         for l in self.activations.values():
             l.clear()
-        
+
+
+class MetricsWriter():
+    def __init__(self, tb_writer: SummaryWriter, max_len: int, scalar_tags: Optional[List[str]]=None):
+        self.__tb_writer: SummaryWriter = tb_writer
+        self.__max_len: int = max_len
+
+        if scalar_tags is None:
+            scalar_tags = list()
+
+        self.__scalar_metrics: Dict[str, np.array] = dict()
+
+        for scalar in scalar_tags:
+            self.add_scalar(scalar)
+    
+        self.__current_step: int = 0
+    
+    def add_scalar(self, tag: str):
+        assert tag not in self.__scalar_metrics.keys(), "Tag has already been added"
+        self.__scalar_metrics[tag] = np.empty((self.__max_len,))
+    
+    def set_step(self, step: int):
+        self.__current_step = step
+
+    def add_sample(self, tag: str, value: float):
+        self.__scalar_metrics[tag][self.__current_step] = value
+    
+    def get(self, tag: str):
+        return np.nanmean(self.__scalar_metrics[tag])
+
+    def write(self, global_step: int):
+        for tag in self.__scalar_metrics.keys():
+            metric_value = self.get(tag)
+            self.__tb_writer.add_scalar(tag, metric_value, global_step=global_step)
+
+    def clear(self):
+        self.__current_step = 0
+        for samples in self.__scalar_metrics.values():
+            samples.fill(np.nan)
