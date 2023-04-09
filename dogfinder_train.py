@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 import transforms
 import visualize
+import logutils
 
 classnames = {
     1: 'aeroplane',
@@ -134,6 +135,9 @@ input_debug=False
 boundary_loss_weight=0.5
 unet_features=32
 write_hparams=False
+activations_log_layers=[
+    "bottleneck"
+]
 
 def make_datasets(datadir: str="./data/", use_2012=True, use_2007=False):
     assert use_2007 or use_2012, "Please select one or both of the datasets"
@@ -168,7 +172,8 @@ def train(
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
     run_comment: str="",
-    checkpointfreq: int=0
+    checkpointfreq: int=0,
+    log_activations: Optional[str]=None
 ):
     matplotlib.use('Agg')
 
@@ -237,6 +242,11 @@ def train(
         "Accuracy/val/pixelwise",
     ])
 
+    activations_logger = None
+    if log_activations is not None:
+        activations_logger = logutils.ActivationsLogger(model=model, writer=writer, layers=activations_log_layers)
+
+
     ds_train_len = len(ds_train)
     global_step = lambda: (
         ds_train_len*epoch + batch_size * (batch_idx+1)
@@ -245,6 +255,13 @@ def train(
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
         # ensure model is in training mode
         model.train(True)
+
+        # hook in activations logger if needed
+        if log_activations is not None:
+            if log_activations in ("all", "train"):
+                activations_logger.enable()
+            else:
+                activations_logger.disable()
 
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
@@ -300,6 +317,10 @@ def train(
 
         metrics_train_epoch.write(global_step=global_step())
 
+        # flush activation histograms for this epoch
+        if log_activations is not None and log_activations in ("all", "train"):
+            activations_logger.flush(global_step=global_step(), phase="train")
+
         if checkpointfreq > 0:
             chpt_saver.save_if_needed(epoch, numbered_chpt=True)
 
@@ -309,6 +330,10 @@ def train(
         if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
             # use eval mode for validation, disabled batchnorm layers?
             model.train(False)
+
+            # hook in activations logger if needed
+            if log_activations is not None and log_activations in ("all", "val"):
+                activations_logger.enable()
 
             with torch.no_grad():
                 for val_batch_idx, val_batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
@@ -360,6 +385,10 @@ def train(
             comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
             writer.add_image("PredictionComparison/val", comparison_fig_t, global_step=global_step())
 
+            # flush activation histograms for this epoch
+            if log_activations is not None and log_activations in ("all", "val"):
+                activations_logger.flush(global_step=global_step(), phase="val")
+
             tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
                 f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
             
@@ -402,6 +431,9 @@ if __name__ == "__main__":
     parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pt")
     parser.add_argument('--runcomment', type=str, default="", help="Comment to append to the name in TensorBoard")
     parser.add_argument('--checkpointfreq', type=int, default=-1, help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
+    parser.add_argument('--log-activations', nargs='?', type=str, choices=["all", "train", "val"],
+        help="Log activation histograms to TensorBoard."
+    )
 
     args = parser.parse_args()
 
@@ -413,6 +445,7 @@ if __name__ == "__main__":
         val_epoch_freq=args.validationfreq,
         resume=args.resume,
         run_comment=args.runcomment,
-        checkpointfreq=args.checkpointfreq
+        checkpointfreq=args.checkpointfreq,
+        log_activations=args.log_activations
     )
     exit(ret)
