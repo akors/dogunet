@@ -97,9 +97,6 @@ input_debug=False
 boundary_loss_weight=0.5
 unet_features=32
 write_hparams=False
-activations_log_layers=[
-    "bottleneck"
-]
 
 def make_datasets(datadir: str="./data/", use_2012=True, use_2007=False):
     assert use_2007 or use_2012, "Please select one or both of the datasets"
@@ -206,7 +203,8 @@ def train(
 
     activations_logger = None
     if log_activations is not None:
-        activations_logger = ActivationsLogger(model=model, writer=writer, layers=activations_log_layers)
+        activations_logger = ActivationsLogger(model=model, writer=writer, layers=log_activations.split(","))
+        activations_logger.enable()
 
 
     ds_train_len = len(ds_train)
@@ -217,13 +215,6 @@ def train(
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
         # ensure model is in training mode
         model.train(True)
-
-        # hook in activations logger if needed
-        if log_activations is not None:
-            if log_activations in ("all", "train"):
-                activations_logger.enable()
-            else:
-                activations_logger.disable()
 
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             img, mask = batch
@@ -277,11 +268,10 @@ def train(
                 acc = (acc.sum()/acc.numel())
                 metrics_train_epoch.add_sample('Accuracy/train/pixelwise', acc.item())
 
-        metrics_train_epoch.write(global_step=global_step())
+                # flush activation histograms for this epoch
+                if activations_logger is not None: activations_logger.flush(global_step=global_step(), phase="train")
 
-        # flush activation histograms for this epoch
-        if log_activations is not None and log_activations in ("all", "train"):
-            activations_logger.flush(global_step=global_step(), phase="train")
+        metrics_train_epoch.write(global_step=global_step())
 
         if checkpointfreq > 0:
             chpt_saver.save_if_needed(epoch, numbered_chpt=True)
@@ -325,6 +315,8 @@ def train(
                     acc = (acc.sum()/acc.numel())
                     metrics_val_epoch.add_sample('Accuracy/val/pixelwise', acc.item())
 
+                    # flush activation histograms for this epoch
+                    if activations_logger is not None: activations_logger.flush(global_step=global_step(), phase="val")
 
             metrics_val_epoch.write(global_step=global_step())
 
@@ -393,8 +385,9 @@ if __name__ == "__main__":
     parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pt")
     parser.add_argument('--runcomment', type=str, default="", help="Comment to append to the name in TensorBoard")
     parser.add_argument('--checkpointfreq', type=int, default=-1, help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
-    parser.add_argument('--log-activations', nargs='?', type=str, choices=["all", "train", "val"],
-        help="Log activation histograms to TensorBoard."
+    parser.add_argument('--log-activations', type=str, metavar="LAYERS",
+        help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated list of layers, "
+        "as defined by the model."
     )
 
     args = parser.parse_args()
