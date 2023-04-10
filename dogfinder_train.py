@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 import transforms
 import visualize
+import logutils
 from logutils import MetricsWriter, ActivationsLogger
 
 classnames = {
@@ -132,7 +133,8 @@ def train(
     resume: Optional[str]=None,
     run_comment: str="",
     checkpointfreq: int=0,
-    log_activations: Optional[str]=None
+    log_activations: Optional[str]=None,
+    log_weights: bool=False
 ):
     matplotlib.use('Agg')
 
@@ -276,6 +278,9 @@ def train(
         if checkpointfreq > 0:
             chpt_saver.save_if_needed(epoch, numbered_chpt=True)
 
+        if log_weights:
+            logutils.log_weights(model=model, writer=writer, global_step=global_step())
+
         tqdm.write(f"Epoch {epoch+1}; Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
             f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
 
@@ -389,6 +394,7 @@ if __name__ == "__main__":
         help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated list of layers, "
         "as defined by the model."
     )
+    parser.add_argument('--log-weights', action="store_true", help="Log weight histograms after each epoch to TensorBoard.")
 
     args = parser.parse_args()
 
@@ -401,6 +407,7 @@ if __name__ == "__main__":
         resume=args.resume,
         run_comment=args.runcomment,
         checkpointfreq=args.checkpointfreq,
-        log_activations=args.log_activations
+        log_activations=args.log_activations,
+        log_weights=args.log_weights
     )
     exit(ret)
