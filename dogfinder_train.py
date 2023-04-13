@@ -167,7 +167,7 @@ def train(
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
 
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion_class = torch.nn.CrossEntropyLoss(ignore_index=0)
     criterion_boundaries = DiceLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -244,14 +244,14 @@ def train(
                     writer.add_image("DbgTrainInput", dbg_input_grid, global_step=global_step())
 
             pred = model(img)
-            pred_s = torch.nn.functional.softmax(pred, dim=1)
+            pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
+            pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
-            #target_mask = torch.zeros((CLASS_MAX+1, mask.shape[-2], mask.shape[-1]), dtype=torch.float32, device=device)
             target_mask = torch.zeros_like(pred)
             target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
             # compose loss by boundary loss and pixel classification
-            loss_pixelclass = criterion(pred_s, target_mask)
+            loss_pixelclass = criterion_class(pred_l, mask)
             loss_boundary = criterion_boundaries(pred_s, target_mask)
 
             loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
@@ -299,13 +299,14 @@ def train(
                     mask = mask.to(device=device)
 
                     pred = model(img)
-                    pred_s = torch.nn.functional.softmax(pred, dim=1)
+                    pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
+                    pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
                     target_mask = torch.zeros_like(pred)
                     target_mask.scatter_(1, mask.unsqueeze(1), 1.)
 
                     # compose loss by boundary loss and pixel classification
-                    loss_pixelclass = criterion(pred_s, target_mask)
+                    loss_pixelclass = criterion_class(pred_l, mask)
                     loss_boundary = criterion_boundaries(pred_s, target_mask)
 
                     loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
