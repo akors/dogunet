@@ -333,19 +333,26 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train dogunet network')
     parser.add_argument('-n', '--name', type=str, default="dogunet",
                         help="Name of the model, used for model state, checkpoint and TB run name.")
-    parser.add_argument('--epochs', type=int, default=20,
+    parser.add_argument('-e', '--epochs', type=int, default=20,
                         help='Number of epochs to train (default: 20)')
-    parser.add_argument('--batchsize', type=int, default=8, help='Batch size for training (default: 8)')
-    parser.add_argument('--learningrate', type=float, default=1e-3, help='Learning Rate (default: torch defaults)')
-    parser.add_argument('--validationfreq', type=int, default=10, help='Frequency of validation')
-    parser.add_argument('--resume', type=str, help='Resume training from this checkpoint', metavar="MODEL.pt")
-    parser.add_argument('--runcomment', type=str, default="", help="Comment to append to the name in TensorBoard")
-    parser.add_argument('--checkpointfreq', type=int, default=-1, help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
+    parser.add_argument('-b', '--batchsize', type=int, default=8,
+                        help='Batch size for training (default: 8)')
+    parser.add_argument('-l', '--learningrate', type=float, default=1e-3,
+                        help='Learning Rate (default: torch defaults)')
+    parser.add_argument('--validationfreq', type=int, default=10,
+                        help='Frequency of validation')
+    parser.add_argument('-r', '--resume', type=str,
+                        help='Resume training from this checkpoint', metavar="MODEL.pt")
+    parser.add_argument('-c', '--runcomment', type=str, default="",
+                        help="Comment to append to the name in TensorBoard")
+    parser.add_argument('--checkpointfreq', type=int, default=-1,
+                        help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
-        help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated list of layers, "
-        "as defined by the model."
-    )
-    parser.add_argument('--log-weights', action="store_true", help="Log weight histograms after each epoch to TensorBoard.")
+                        help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated "+
+                        "list of layers, as defined by the model."
+                        )
+    parser.add_argument('--log-weights', action="store_true",
+                        help="Log weight histograms after each epoch to TensorBoard.")
 
     args = parser.parse_args()
 
