@@ -67,8 +67,7 @@ class CheckpointSaver:
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-nproc=8
-input_debug=True
+input_debug=False
 boundary_loss_weight=0.5
 unet_features=32
 write_hparams=False
@@ -78,6 +77,7 @@ def train(
     model_name: str,
     num_epochs: int,
     batch_size: int,
+    nproc: int=8,
     learning_rate: float=None,
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
@@ -341,6 +341,8 @@ if __name__ == "__main__":
                         help='Number of epochs to train (default: 20)')
     parser.add_argument('-b', '--batchsize', type=int, default=8,
                         help='Batch size for training (default: 8)')
+    parser.add_argument('-j', '--nproc', type=int, default=8,
+                        help='Number of CPU workers that will be used to load/transform data (default: 8)')
     parser.add_argument('-l', '--learningrate', type=float, default=1e-3,
                         help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=10,
@@ -364,6 +366,7 @@ if __name__ == "__main__":
         model_name=args.name,
         num_epochs=args.epochs,
         batch_size=args.batchsize,
+        nproc=args.nproc,
         learning_rate=args.learningrate,
         val_epoch_freq=args.validationfreq,
         resume=args.resume,
