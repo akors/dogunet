@@ -68,7 +68,7 @@ class CheckpointSaver:
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 nproc=8
-input_debug=False
+input_debug=True
 boundary_loss_weight=0.5
 unet_features=32
 write_hparams=False
@@ -115,7 +115,7 @@ def train(
     model = model.to(device)
 
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
-    val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True)
+    val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
     criterion_class = torch.nn.CrossEntropyLoss(ignore_index=0)
     criterion_boundaries = DiceLoss()
@@ -176,6 +176,7 @@ def train(
             # bring sample to device
             img: torch.Tensor = img.to(device=device)
             mask: torch.Tensor = mask.to(device=device)
+            mask = mask.to(dtype=torch.long)
 
             if input_debug:
                 img_std, img_mean = torch.std_mean(img)
@@ -185,8 +186,8 @@ def train(
                 # TODO plot img, mask into tensorboard for testing
                 if batch_idx == 0:
                     dbg_input_len = min(img.size(0), 4)
-                    dbg_input_img = img[0:dbg_input_len,:,:,:]
-                    dbg_input_mask = visualize.classmask_to_colormask(mask[0:dbg_input_len,:,:])
+                    dbg_input_img = inv_normalize(img[0:dbg_input_len,:,:,:])
+                    dbg_input_mask = visualize.classmask_to_colormask(mask[0:dbg_input_len,0,:,:])
 
                     dbg_input_grid = torchvision.utils.make_grid(
                         torch.cat((dbg_input_img, dbg_input_mask), dim=0),
@@ -198,10 +199,10 @@ def train(
             pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
             target_mask = torch.zeros_like(pred)
-            target_mask.scatter_(1, mask.unsqueeze(1), 1.)
+            target_mask.scatter_(1, mask, 1.)
 
             # compose loss by boundary loss and pixel classification
-            loss_pixelclass = criterion_class(pred_l, mask)
+            loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
             loss_boundary = criterion_boundaries(pred_s, target_mask)
 
             loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
@@ -247,16 +248,17 @@ def train(
                     img, mask = val_batch
                     img = img.to(device=device)
                     mask = mask.to(device=device)
+                    mask = mask.to(dtype=torch.long)
 
                     pred = model(img)
                     pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
                     pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
                     target_mask = torch.zeros_like(pred)
-                    target_mask.scatter_(1, mask.unsqueeze(1), 1.)
+                    target_mask.scatter_(1, mask, 1.)
 
                     # compose loss by boundary loss and pixel classification
-                    loss_pixelclass = criterion_class(pred_l, mask)
+                    loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
                     loss_boundary = criterion_boundaries(pred_s, target_mask)
 
                     loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
@@ -280,6 +282,7 @@ def train(
             vis_samples = 3 # number of samples to visualize per image
             val_imgs = torch.stack([ds_train[i][0] for i in range(vis_samples)]).to(device=device)
             val_masks = torch.stack([ds_train[i][1] for i in range(vis_samples)]).to(device=device)
+            val_masks = val_masks[:,0,:,:]
             pred = model(val_imgs)
             pred_amax = torch.argmax(pred, dim=1)
 
@@ -289,6 +292,7 @@ def train(
             # prepare comparison grid for the first three samples in training dataset
             val_imgs = torch.stack([ds_val[i][0] for i in range(vis_samples)]).to(device=device)
             val_masks = torch.stack([ds_val[i][1] for i in range(vis_samples)]).to(device=device)
+            val_masks = val_masks[:,0,:,:]
             pred = model(val_imgs)
             pred_amax = torch.argmax(pred, dim=1)
 
