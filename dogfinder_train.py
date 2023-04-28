@@ -280,9 +280,9 @@ def train(
 
             # prepare comparison grid for the first three samples in training dataset
             vis_samples = 3 # number of samples to visualize per image
-            val_imgs = torch.stack([ds_train[i][0] for i in range(vis_samples)]).to(device=device)
-            val_masks = torch.stack([ds_train[i][1] for i in range(vis_samples)]).to(device=device)
-            val_masks = val_masks[:,0,:,:]
+            val_samples = [ds_train[i] for i in range(vis_samples)]
+            val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
+            val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
             pred = model(val_imgs)
             pred_amax = torch.argmax(pred, dim=1)
 
@@ -290,9 +290,9 @@ def train(
             writer.add_image("PredictionComparison/train", comparison_fig_t, global_step=global_step())
 
             # prepare comparison grid for the first three samples in training dataset
-            val_imgs = torch.stack([ds_val[i][0] for i in range(vis_samples)]).to(device=device)
-            val_masks = torch.stack([ds_val[i][1] for i in range(vis_samples)]).to(device=device)
-            val_masks = val_masks[:,0,:,:]
+            val_samples = [ds_val[i] for i in range(vis_samples)]
+            val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
+            val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
             pred = model(val_imgs)
             pred_amax = torch.argmax(pred, dim=1)
 
