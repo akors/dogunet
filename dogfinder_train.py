@@ -160,15 +160,15 @@ def train(
 
 
     ds_train_len = len(ds_train)
-    global_step = lambda: (
-        ds_train_len*epoch + batch_size * (batch_idx+1)
-        - batch_size + batch[0].size(0)
-    )
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
         # ensure model is in training mode
         model.train(True)
 
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
+            current_global_step = (
+                ds_train_len*epoch + batch_size * (batch_idx+1)
+                - batch_size + batch[0].size(0)
+            )
             img, mask = batch
 
             metrics_train_epoch.set_step(batch_idx)
@@ -180,8 +180,8 @@ def train(
 
             if input_debug:
                 img_std, img_mean = torch.std_mean(img)
-                writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=global_step())
-                writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=global_step())
+                writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=current_global_step)
+                writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=current_global_step)
 
                 # TODO plot img, mask into tensorboard for testing
                 if batch_idx == 0:
@@ -192,7 +192,7 @@ def train(
                     dbg_input_grid = torchvision.utils.make_grid(
                         torch.cat((dbg_input_img, dbg_input_mask), dim=0),
                         nrow=dbg_input_len)
-                    writer.add_image("DbgTrainInput", dbg_input_grid, global_step=global_step())
+                    writer.add_image("DbgTrainInput", dbg_input_grid, global_step=current_global_step)
 
             pred = model(img)
             pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
@@ -222,15 +222,20 @@ def train(
                 metrics_train_epoch.add_sample('Accuracy/train/pixelwise', acc.item())
 
                 # flush activation histograms for this epoch
-                if activations_logger is not None: activations_logger.flush(global_step=global_step(), phase="train")
+                if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="train")
 
-        metrics_train_epoch.write(global_step=global_step())
+            # delete in the hopes of saving some memory
+            del img, mask, batch, target_mask
+
+            pass # end for loop training batches
+
+        metrics_train_epoch.write(global_step=current_global_step)
 
         if checkpointfreq > 0:
             chpt_saver.save_if_needed(epoch, numbered_chpt=True)
 
         if log_weights:
-            logutils.log_weights(model=model, writer=writer, global_step=global_step())
+            logutils.log_weights(model=model, writer=writer, global_step=current_global_step)
 
         tqdm.write(f"Epoch {epoch+1}; Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
             f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
@@ -244,8 +249,8 @@ def train(
                 activations_logger.enable()
 
             with torch.no_grad():
-                for val_batch_idx, val_batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
-                    img, mask = val_batch
+                for val_batch_idx, batch in enumerate(tqdm(val_dataloader, desc="Batches (val)")):
+                    img, mask = batch
                     img = img.to(device=device)
                     mask = mask.to(device=device)
                     mask = mask.to(dtype=torch.long)
@@ -274,38 +279,43 @@ def train(
                     metrics_val_epoch.add_sample('Accuracy/val/pixelwise', acc.item())
 
                     # flush activation histograms for this epoch
-                    if activations_logger is not None: activations_logger.flush(global_step=global_step(), phase="val")
+                    if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="val")
 
-            metrics_val_epoch.write(global_step=global_step())
+                # delete in the hopes of saving some memory
+                del img, mask, batch, target_mask
 
-            # prepare comparison grid for the first three samples in training dataset
-            vis_samples = 3 # number of samples to visualize per image
-            val_samples = [ds_train[i] for i in range(vis_samples)]
-            val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
-            val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
-            pred = model(val_imgs)
-            pred_amax = torch.argmax(pred, dim=1)
+                metrics_val_epoch.write(global_step=current_global_step)
 
-            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
-            writer.add_image("PredictionComparison/train", comparison_fig_t, global_step=global_step())
+                # prepare comparison grid for the first three samples in training dataset
+                vis_samples = 3 # number of samples to visualize per image
+                val_samples = [ds_train[i] for i in range(vis_samples)]
+                val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
+                val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
+                pred = model(val_imgs)
+                pred_amax = torch.argmax(pred, dim=1)
 
-            # prepare comparison grid for the first three samples in training dataset
-            val_samples = [ds_val[i] for i in range(vis_samples)]
-            val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
-            val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
-            pred = model(val_imgs)
-            pred_amax = torch.argmax(pred, dim=1)
+                comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
+                writer.add_image("PredictionComparison/train", comparison_fig_t, global_step=current_global_step)
 
-            comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
-            writer.add_image("PredictionComparison/val", comparison_fig_t, global_step=global_step())
+                # prepare comparison grid for the first three samples in training dataset
+                val_samples = [ds_val[i] for i in range(vis_samples)]
+                val_imgs = torch.stack([s[0] for s in val_samples]).to(device=device)
+                val_masks = torch.stack([s[1][0,:,:] for s in val_samples]).to(device=device)
+                pred = model(val_imgs)
+                pred_amax = torch.argmax(pred, dim=1)
 
-            # flush activation histograms for this epoch
-            if log_activations is not None and log_activations in ("all", "val"):
-                activations_logger.flush(global_step=global_step(), phase="val")
+                comparison_fig_t = visualize.make_comparison_grid(inv_normalize(val_imgs), pred_amax, val_masks)
+                writer.add_image("PredictionComparison/val", comparison_fig_t, global_step=current_global_step)
 
-            tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
-                f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
-            
+                # flush activation histograms for this epoch
+                if log_activations is not None and log_activations in ("all", "val"):
+                    activations_logger.flush(global_step=current_global_step, phase="val")
+
+                tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
+                    f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
+                
+                del val_samples, val_imgs, val_masks
+
             pass # if validating
 
     if write_hparams:
@@ -368,6 +378,7 @@ if __name__ == "__main__":
         model_name=args.name,
         num_epochs=args.epochs,
         batch_size=args.batchsize,
+        unet_features=args.unet_features,
         nproc=args.nproc,
         learning_rate=args.learningrate,
         val_epoch_freq=args.validationfreq,
