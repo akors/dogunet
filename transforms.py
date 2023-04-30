@@ -85,7 +85,7 @@ class ClipMaskClasses():
 def train_transforms(mean, std):
     return T.Compose([
         T.ToImageTensor(),
-        T.RandomResizedCrop(size=256, ratio=(1,1), antialias=True),
+        T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=True),
         T.ConvertImageDtype(torch.float32), # not sure why I cant set this in ToImageTensor in the first place
         T.Normalize(mean=mean, std=std),
         ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX)
