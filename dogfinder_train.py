@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import shutil
 from typing import Optional
 
@@ -82,6 +83,7 @@ def train(
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
     run_comment: str="",
+    checkpointdir: str="./checkpoints/",
     checkpointfreq: int=0,
     log_activations: Optional[str]=None,
     log_weights: bool=False
@@ -93,7 +95,10 @@ def train(
     print(f"Validation dataset length: {len(ds_val)}")
 
     if checkpointfreq != 0:
-        print(f"Writing checkpoints to {model_name}.chpt*.pt and {model_name}.chpt.pt")
+        m = f"Writing checkpoints to {os.path.join(checkpointdir, model_name)}.chpt.pt"
+        if checkpointfreq > 0:
+            m += f" and {os.path.join(checkpointdir, model_name)}.chpt*.pt"
+        print(m)
 
     # needed for visualization
     inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
@@ -122,7 +127,9 @@ def train(
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     if checkpointfreq != 0:
-        chpt_saver = CheckpointSaver(basepath=model_name, model=model, optimizer=optimizer,
+        if not os.path.isdir(checkpointdir):
+            os.mkdir(checkpointdir)
+        chpt_saver = CheckpointSaver(basepath=os.path.join(checkpointdir, model_name), model=model, optimizer=optimizer,
                                      batch_size=batch_size, checkpoint_freq=checkpointfreq)
     else:
         chpt_saver = None
@@ -363,6 +370,8 @@ if __name__ == "__main__":
                         help='Resume training from this checkpoint', metavar="MODEL.pt")
     parser.add_argument('-c', '--runcomment', type=str, default="",
                         help="Comment to append to the name in TensorBoard")
+    parser.add_argument('--checkpointdir', type=str, default="./checkpoints/",
+                        help="Directory where checkpoints will be saved. Default: ./checkpoints")
     parser.add_argument('--checkpointfreq', type=int, default=-1,
                         help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
@@ -384,6 +393,7 @@ if __name__ == "__main__":
         val_epoch_freq=args.validationfreq,
         resume=args.resume,
         run_comment=args.runcomment,
+        checkpointdir=args.checkpointdir,
         checkpointfreq=args.checkpointfreq,
         log_activations=args.log_activations,
         log_weights=args.log_weights
