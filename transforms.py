@@ -98,28 +98,6 @@ def make_transforms(mean, std, augment=False):
 
     return T.Compose(oplist)
 
-def train_transforms(mean, std):
-    return T.Compose([
-        T.ToImageTensor(),
-        T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=True),
-        T.ConvertImageDtype(torch.float32), # not sure why I cant set this in ToImageTensor in the first place
-        T.Normalize(mean=mean, std=std),
-        ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX)
-    ])
-
-
-def inference_transforms(mean, std):
-    return T.Compose([
-        #Resize_with_pad(256,256),
-        T.ToImageTensor(),
-        T.Resize(size=256),
-        T.CenterCrop(256),
-        T.ConvertImageDtype(torch.float32), # not sure why I cant set this in ToImageTensor in the first place
-        T.Normalize(mean=mean, std=std),
-        ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX)
-    ])
-
-
 def inv_normalize(mean, std):
     return T.Normalize(mean=[-m / s for m, s in zip(mean, std)],
                                 std=[1 / s for s in std])
