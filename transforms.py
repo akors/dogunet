@@ -94,8 +94,10 @@ def train_transforms(mean, std):
 
 def inference_transforms(mean, std):
     return T.Compose([
-        Resize_with_pad(256,256),
+        #Resize_with_pad(256,256),
         T.ToImageTensor(),
+        T.Resize(size=256),
+        T.CenterCrop(256),
         T.ConvertImageDtype(torch.float32), # not sure why I cant set this in ToImageTensor in the first place
         T.Normalize(mean=mean, std=std),
         ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX)
