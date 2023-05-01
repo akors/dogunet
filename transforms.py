@@ -81,6 +81,22 @@ class ClipMaskClasses():
         x = torchvision.datapoints.Mask(torch.where(x <= 20, x, 0))
         return x
 
+def make_transforms(mean, std, augment=False):
+    oplist = []
+    
+    oplist.append(T.ToImageTensor())
+
+    if not augment:
+        oplist.append(T.Resize(size=256))
+        oplist.append(T.CenterCrop(256))
+    else:
+        oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=True))
+
+    oplist.append(T.ConvertImageDtype(torch.float32))
+    oplist.append(T.Normalize(mean=mean, std=std))
+    oplist.append(ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX))
+
+    return T.Compose(oplist)
 
 def train_transforms(mean, std):
     return T.Compose([

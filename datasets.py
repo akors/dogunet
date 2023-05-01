@@ -36,16 +36,16 @@ def make_datasets(datadir: str="./data/", years=["2012"]):
     ds_train_list = list()
     ds_val_list = list()
 
+    tr_train = transforms.make_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=True)
+    tr_val = transforms.make_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=False)
+
     for year in years:
         # create datasets with our transforms. assume they're already downloaded
         ds_train_list.append(torchvision.datasets.wrap_dataset_for_transforms_v2(torchvision.datasets.VOCSegmentation(
-            root=datadir, year=year, image_set="train", download=False,
-            transforms=transforms.train_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
+            root=datadir, year=year, image_set="train", download=False, transforms=tr_train
         )))
         ds_val_list.append(torchvision.datasets.wrap_dataset_for_transforms_v2(torchvision.datasets.VOCSegmentation(
-            root=datadir,
-            year=year, image_set="val", download=False,
-            transforms=transforms.inference_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
+            root=datadir, year=year, image_set="val", download=False, transforms=tr_val
         )))
 
     ds_train = torch.utils.data.ConcatDataset(ds_train_list)
