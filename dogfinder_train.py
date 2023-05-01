@@ -364,7 +364,7 @@ if __name__ == "__main__":
                         help='Number of CPU workers that will be used to load/transform data (default: 8)')
     parser.add_argument('-l', '--learningrate', type=float, default=1e-3,
                         help='Learning Rate (default: torch defaults)')
-    parser.add_argument('--validationfreq', type=int, default=10,
+    parser.add_argument('--validationfreq', type=int, default=20,
                         help='Frequency of validation')
     parser.add_argument('-r', '--resume', type=str,
                         help='Resume training from this checkpoint', metavar="MODEL.pt")
