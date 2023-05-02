@@ -224,7 +224,7 @@ def train(
 
             with torch.no_grad():
                 # calculate pixel-wise annoation accuracy for all imgs in batch
-                acc = (mask == torch.argmax(pred, dim=1))
+                acc = (mask[:,0,:,:] == torch.argmax(pred, dim=1))
                 acc = (acc.sum()/acc.numel())
                 metrics_train_epoch.add_sample('Accuracy/train/pixelwise', acc.item())
 
@@ -281,7 +281,7 @@ def train(
                     metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
 
                     # calculate pixel-wise annoation accuracy for alyl imgs in batch
-                    acc = (mask == torch.argmax(pred, dim=1))
+                    acc = (mask[:,0,:,:] == torch.argmax(pred, dim=1))
                     acc = (acc.sum()/acc.numel())
                     metrics_val_epoch.add_sample('Accuracy/val/pixelwise', acc.item())
 
