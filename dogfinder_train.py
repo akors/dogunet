@@ -181,7 +181,7 @@ def train(
         writer.add_text("RunInfo/git_hash", git_hash)
 
     if git_diff is not None and len(git_diff) > 0:
-        writer.add_text("RunInfo/git_hash", '```\n'+git_diff+'\n```')
+        writer.add_text("RunInfo/git_diff", '```\n'+git_diff+'\n```')
 
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
