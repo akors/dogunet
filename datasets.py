@@ -36,11 +36,12 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     ds_train_list = list()
     ds_val_list = list()
 
-
     tr_train = transforms.make_transforms(
-        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=(augment_level > 0))
+        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment_level=augment_level)
+    
+    # validation transforms dont get data augmentation
     tr_val = transforms.make_transforms(
-        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=False)
+        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment_level=0)
 
     for year in years:
         # create datasets with our transforms. assume they're already downloaded

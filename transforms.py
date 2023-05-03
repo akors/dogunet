@@ -73,7 +73,7 @@ class ClipMaskClasses():
         x = torchvision.datapoints.Mask(torch.where(x <= 20, x, 0))
         return x
 
-def make_transforms(mean, std, augment=False):
+def make_transforms(mean, std, augment_level=0):
     # apply anti-aliasing for resize operations, this will be skipped automagically for masks of type
     # torchvision.datapoints.Mask
     antialias = True
@@ -82,11 +82,14 @@ def make_transforms(mean, std, augment=False):
     
     oplist.append(T.ToImageTensor())
 
-    if not augment:
+    if not augment_level:
         oplist.append(T.Resize(size=256, antialias=antialias))
         oplist.append(T.CenterCrop(256))
-    else:
+    
+    if augment_level >= 1:
         oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=antialias))
+    
+    assert augment_level <= 1, "Augmentation level "+str(augment_level)+"?? What is this, the future??"
 
     oplist.append(T.ConvertImageDtype(torch.float32))
     oplist.append(T.Normalize(mean=mean, std=std))
