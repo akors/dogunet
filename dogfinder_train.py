@@ -415,7 +415,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpointfreq', type=int, default=-1,
                         help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
     parser.add_argument('-a', '--augmentation-level', type=int, default=1,
-                        help="Augmentation level. 0 for disabled, 1 for basic geomertric. (default: 0)")
+                        help="Augmentation level. 0 for disabled, 1 for basic geometric. (default: 1)")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
                         help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated "+
                         "list of layers, as defined by the model."
