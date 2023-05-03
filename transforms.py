@@ -31,14 +31,6 @@ class Resize_with_pad:
         ratio_f = self.w / self.h
         ratio_1 = w_1 / h_1
 
-        # if isinstance(image, torchvision.datapoints.Mask):
-        #     #disable interpolation
-        #     interpolation = T.InterpolationMode.NEAREST_EXACT
-        #     antialias = False
-        # else:
-        #     interpolation = self.interpolation
-        #     antialias = self.antialias
-
         # check if the original and final aspect ratios are the same within a margin
         if round(ratio_1, 2) != round(ratio_f, 2):
 
@@ -82,15 +74,19 @@ class ClipMaskClasses():
         return x
 
 def make_transforms(mean, std, augment=False):
+    # apply anti-aliasing for resize operations, this will be skipped automagically for masks of type
+    # torchvision.datapoints.Mask
+    antialias = True
+
     oplist = []
     
     oplist.append(T.ToImageTensor())
 
     if not augment:
-        oplist.append(T.Resize(size=256))
+        oplist.append(T.Resize(size=256, antialias=antialias))
         oplist.append(T.CenterCrop(256))
     else:
-        oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=True))
+        oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=antialias))
 
     oplist.append(T.ConvertImageDtype(torch.float32))
     oplist.append(T.Normalize(mean=mean, std=std))
