@@ -15,6 +15,7 @@
                 // "--batchsize=8",
                 // "--unet-features=32",
                 "--epochs=1",
+                // "--augmentation-level=1",
                 // "--log-weights",
             ],
             "env": {"CUDA_LAUNCH_BLOCKING" : "1"},
