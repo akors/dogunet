@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 from typing import Optional
 
 import matplotlib
@@ -25,6 +26,33 @@ import transforms
 import visualize
 import logutils
 from logutils import MetricsWriter, ActivationsLogger
+
+
+def get_git_revision_short_hash():
+    wd = os.path.dirname(__file__)
+    try:
+        result = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'], stdout=subprocess.PIPE, cwd=wd)
+    except FileNotFoundError:
+        # Could not find git binary
+        return None
+
+    if result.returncode != 0:
+        return None
+    else:
+        return result.stdout.decode('ascii').strip()
+
+def get_git_diff():
+    wd = os.path.dirname(__file__)
+    try:
+        result = subprocess.run(['git', 'diff', 'HEAD'], stdout=subprocess.PIPE, cwd=wd)
+    except FileNotFoundError:
+        # Could not find git binary
+        return None
+
+    if result.returncode != 0:
+        return None
+    else:
+        return result.stdout.decode('ascii').strip()
 
 
 
@@ -144,6 +172,17 @@ def train(
         print(f"Resuming training from checkpoint {resume} at epoch {resume_epoch}")
 
     writer = SummaryWriter(comment=run_comment)
+
+    # store git hash and diff, if available
+    git_hash = get_git_revision_short_hash()
+    git_diff = get_git_diff()
+
+    if git_hash is not None:
+        writer.add_text("RunInfo/git_hash", git_hash)
+
+    if git_diff is not None and len(git_diff) > 0:
+        writer.add_text("RunInfo/git_hash", '```\n'+git_diff+'\n```')
+
     writer.add_graph(model, ds_train[0][0].unsqueeze(0).to(device))
 
     # initialize epoch metrics
