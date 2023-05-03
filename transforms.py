@@ -88,6 +88,7 @@ def make_transforms(mean, std, augment_level=0):
     
     if augment_level >= 1:
         oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=antialias))
+        oplist.append(T.RandomHorizontalFlip())
     
     assert augment_level <= 1, "Augmentation level "+str(augment_level)+"?? What is this, the future??"
 
