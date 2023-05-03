@@ -31,13 +31,16 @@ CLASSNAMES = {
 CLASS_MAX = 20
 CLASS_DOG = 12
 
-def make_datasets(datadir: str="./data/", years=["2012"]):
+def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     assert len(years) > 0, "Need to select at least one year between 2007 and 2012"
     ds_train_list = list()
     ds_val_list = list()
 
-    tr_train = transforms.make_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=True)
-    tr_val = transforms.make_transforms(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=False)
+
+    tr_train = transforms.make_transforms(
+        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=(augment_level > 0))
+    tr_val = transforms.make_transforms(
+        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment=False)
 
     for year in years:
         # create datasets with our transforms. assume they're already downloaded

@@ -85,12 +85,13 @@ def train(
     run_comment: str="",
     checkpointdir: str="./checkpoints/",
     checkpointfreq: int=0,
+    augment_level: int=0,
     log_activations: Optional[str]=None,
     log_weights: bool=False
 ):
     matplotlib.use('Agg')
 
-    ds_train, ds_val = datasets.make_datasets()
+    ds_train, ds_val = datasets.make_datasets(augment_level=augment_level)
     print(f"Training dataset length: {len(ds_train)}")
     print(f"Validation dataset length: {len(ds_val)}")
 
@@ -190,7 +191,7 @@ def train(
                 writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=current_global_step)
                 writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=current_global_step)
 
-                # TODO plot img, mask into tensorboard for testing
+                # TODO plot iaugment_levelmg, mask into tensorboard for testing
                 if batch_idx == 0:
                     dbg_input_len = min(img.size(0), 4)
                     dbg_input_img = inv_normalize(img[0:dbg_input_len,:,:,:])
@@ -374,6 +375,8 @@ if __name__ == "__main__":
                         help="Directory where checkpoints will be saved. Default: ./checkpoints")
     parser.add_argument('--checkpointfreq', type=int, default=-1,
                         help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
+    parser.add_argument('-a', '--augmentation-level', type=int, default=1,
+                        help="Augmentation level. 0 for disabled, 1 for basic geomertric. (default: 0)")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
                         help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated "+
                         "list of layers, as defined by the model."
@@ -395,6 +398,7 @@ if __name__ == "__main__":
         run_comment=args.runcomment,
         checkpointdir=args.checkpointdir,
         checkpointfreq=args.checkpointfreq,
+        augment_level=args.augmentation_level,
         log_activations=args.log_activations,
         log_weights=args.log_weights
     )
