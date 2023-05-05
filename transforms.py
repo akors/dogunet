@@ -89,8 +89,10 @@ def make_transforms(mean, std, augment_level=0):
     if augment_level >= 1:
         oplist.append(T.RandomResizedCrop(size=256, scale=(0.3, 1.0), ratio=(1,1), antialias=antialias))
         oplist.append(T.RandomHorizontalFlip())
+    if augment_level >= 2:
+        oplist.append(T.GaussianBlur(kernel_size=[5, 5], sigma=2))
     
-    assert augment_level <= 1, "Augmentation level "+str(augment_level)+"?? What is this, the future??"
+    assert augment_level <= 2, "Augmentation level "+str(augment_level)+"?? What is this, the future??"
 
     oplist.append(T.ConvertImageDtype(torch.float32))
     oplist.append(T.Normalize(mean=mean, std=std))
