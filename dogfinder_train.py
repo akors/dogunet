@@ -14,7 +14,8 @@ import torch.utils.data
 import torchvision.datasets
 import torchvision.utils
 
-from brain_segmentation_pytorch.loss import DiceLoss
+#from brain_segmentation_pytorch.loss import DiceLoss
+from monai.losses import DiceLoss
 import brain_segmentation_pytorch.unet
 
 from torch.utils.tensorboard import SummaryWriter
@@ -153,7 +154,7 @@ def train(
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
     criterion_class = torch.nn.CrossEntropyLoss(ignore_index=0)
-    criterion_boundaries = DiceLoss()
+    criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     if checkpointfreq != 0:
@@ -258,9 +259,10 @@ def train(
 
             # compose loss by boundary loss and pixel classification
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-            loss_boundary = criterion_boundaries(pred_s, mask_onehot)
+            loss_boundary = criterion_boundaries(pred_l, mask)
 
-            loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+            #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+            loss = loss_boundary
 
             metrics_train_epoch.add_sample('Loss/train/total', loss.item())
             metrics_train_epoch.add_sample('Loss/train/pixelclass', loss_pixelclass.item())
@@ -321,9 +323,10 @@ def train(
 
                     # compose loss by boundary loss and pixel classification
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-                    loss_boundary = criterion_boundaries(pred_s, mask_onehot)
+                    loss_boundary = criterion_boundaries(pred_l, mask)
 
-                    loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+                    #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+                    loss = loss_boundary
 
                     metrics_val_epoch.set_step(val_batch_idx)
                     metrics_val_epoch.add_sample('Loss/val/total', loss.item())
