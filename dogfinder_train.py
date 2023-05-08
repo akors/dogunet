@@ -110,7 +110,7 @@ def train(
     learning_rate: float=None,
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
-    run_comment: str="",
+    run_comment: Optional[str]=None,
     checkpointdir: str="./checkpoints/",
     checkpointfreq: int=0,
     augment_level: int=0,
@@ -171,7 +171,13 @@ def train(
         del checkpoint # not needed after this points
         print(f"Resuming training from checkpoint {resume} at epoch {resume_epoch}")
 
-    writer = SummaryWriter(comment=run_comment)
+    # compose TB run comment from model name and our run comment argument
+    comment = "_" + model_name
+    if run_comment is not None:
+        comment += "_"
+        comment += run_comment
+
+    writer = SummaryWriter(comment=comment)
 
     # store git hash and diff, if available
     git_hash = get_git_revision_short_hash()
@@ -408,7 +414,7 @@ if __name__ == "__main__":
                         help='Frequency of validation')
     parser.add_argument('-r', '--resume', type=str,
                         help='Resume training from this checkpoint', metavar="MODEL.pt")
-    parser.add_argument('-c', '--runcomment', type=str, default="",
+    parser.add_argument('-c', '--runcomment', type=str, default=None,
                         help="Comment to append to the name in TensorBoard")
     parser.add_argument('--checkpointdir', type=str, default="./checkpoints/",
                         help="Directory where checkpoints will be saved. Default: ./checkpoints")
