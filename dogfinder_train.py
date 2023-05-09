@@ -251,12 +251,11 @@ def train(
             pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
             pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
-            target_mask = torch.zeros_like(pred)
-            target_mask.scatter_(1, mask, 1.)
+            mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
 
             # compose loss by boundary loss and pixel classification
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-            loss_boundary = criterion_boundaries(pred_s, target_mask)
+            loss_boundary = criterion_boundaries(pred_s, mask_onehot)
 
             loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
 
@@ -278,7 +277,7 @@ def train(
                 if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="train")
 
             # delete in the hopes of saving some memory
-            del img, mask, batch, target_mask
+            del img, mask, batch, mask_onehot
 
             pass # end for loop training batches
 
@@ -312,12 +311,11 @@ def train(
                     pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
                     pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
-                    target_mask = torch.zeros_like(pred)
-                    target_mask.scatter_(1, mask, 1.)
+                    mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
 
                     # compose loss by boundary loss and pixel classification
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-                    loss_boundary = criterion_boundaries(pred_s, target_mask)
+                    loss_boundary = criterion_boundaries(pred_s, mask_onehot)
 
                     loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
 
@@ -335,7 +333,7 @@ def train(
                     if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="val")
 
                 # delete in the hopes of saving some memory
-                del img, mask, batch, target_mask
+                del img, mask, batch, mask_onehot
 
                 metrics_val_epoch.write(global_step=current_global_step)
 
