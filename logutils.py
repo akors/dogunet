@@ -94,3 +94,7 @@ class MetricsWriter():
 def log_weights(model: torch.nn.Module, writer: SummaryWriter, global_step: int):
     for n, p in model.named_parameters(recurse=True):
         writer.add_histogram(f"Weights/{n}", values=p, global_step=global_step)
+
+def log_metrics_dict(metrics_dict: Dict[str, float], writer, global_step: int, prefix=''):
+    for name, value in metrics_dict.items():
+        writer.add_scalar(prefix+name, value, global_step=global_step)

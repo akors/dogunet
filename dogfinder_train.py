@@ -24,6 +24,7 @@ from tqdm import tqdm
 import datasets
 import transforms
 import visualize
+from metrics import MultiMetrics
 import logutils
 from logutils import MetricsWriter, ActivationsLogger
 
@@ -206,6 +207,8 @@ def train(
         "Accuracy/val/pixelwise",
     ])
 
+    multimetrics = MultiMetrics()
+
     activations_logger = None
     if log_activations is not None:
         activations_logger = ActivationsLogger(model=model, writer=writer, layers=log_activations.split(","))
@@ -216,6 +219,9 @@ def train(
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
         # ensure model is in training mode
         model.train(True)
+
+        # reset metrics before epoch
+        multimetrics.reset()
 
         for batch_idx, batch in enumerate(tqdm(train_dataloader, desc="Batches (train)", unit="batch")):
             current_global_step = (
@@ -236,7 +242,6 @@ def train(
                 writer.add_scalar("DbgTrainImageDist/mean", img_mean, global_step=current_global_step)
                 writer.add_scalar("DbgTrainImageDist/std", img_std, global_step=current_global_step)
 
-                # TODO plot iaugment_levelmg, mask into tensorboard for testing
                 if batch_idx == 0:
                     dbg_input_len = min(img.size(0), 4)
                     dbg_input_img = inv_normalize(img[0:dbg_input_len,:,:,:])
@@ -276,12 +281,17 @@ def train(
                 # flush activation histograms for this epoch
                 if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="train")
 
+                multimetrics.update(pred=pred, target=mask)
+
             # delete in the hopes of saving some memory
             del img, mask, batch, mask_onehot
 
             pass # end for loop training batches
 
         metrics_train_epoch.write(global_step=current_global_step)
+
+        multimetrics_train_epoch = multimetrics.calculate()
+        logutils.log_metrics_dict(multimetrics_train_epoch, writer, global_step=current_global_step, prefix="Metrics/train/")
 
         if checkpointfreq > 0:
             chpt_saver.save_if_needed(epoch, numbered_chpt=True)
@@ -295,6 +305,8 @@ def train(
         if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
             # use eval mode for validation, disabled batchnorm layers?
             model.train(False)
+
+            multimetrics.reset()
 
             # hook in activations logger if needed
             if log_activations is not None and log_activations in ("all", "val"):
@@ -329,6 +341,8 @@ def train(
                     acc = (acc.sum()/acc.numel())
                     metrics_val_epoch.add_sample('Accuracy/val/pixelwise', acc.item())
 
+                    multimetrics.update(pred, mask)
+
                     # flush activation histograms for this epoch
                     if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="val")
 
@@ -336,6 +350,9 @@ def train(
                 del img, mask, batch, mask_onehot
 
                 metrics_val_epoch.write(global_step=current_global_step)
+
+                multimetrics_val_epoch = multimetrics.calculate()
+                logutils.log_metrics_dict(multimetrics_val_epoch, writer, global_step=current_global_step, prefix="Metrics/val/")
 
                 # prepare comparison grid for the first three samples in training dataset
                 vis_samples = 3 # number of samples to visualize per image
