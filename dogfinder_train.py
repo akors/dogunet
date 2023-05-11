@@ -197,14 +197,12 @@ def train(
         "Loss/train/total",
         "Loss/train/pixelclass",
         "Loss/train/boundary",
-        "Accuracy/train/pixelwise"
     ])
 
     metrics_val_epoch = MetricsWriter(writer, max_len=len(val_dataloader), scalar_tags=[
         "Loss/val/total",
         "Loss/val/pixelclass",
         "Loss/val/boundary",
-        "Accuracy/val/pixelwise",
     ])
 
     multimetrics = MultiMetrics()
@@ -273,11 +271,6 @@ def train(
             optimizer.step()
 
             with torch.no_grad():
-                # calculate pixel-wise annoation accuracy for all imgs in batch
-                acc = (mask[:,0,:,:] == torch.argmax(pred, dim=1))
-                acc = (acc.sum()/acc.numel())
-                metrics_train_epoch.add_sample('Accuracy/train/pixelwise', acc.item())
-
                 # flush activation histograms for this epoch
                 if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="train")
 
@@ -299,8 +292,9 @@ def train(
         if log_weights:
             logutils.log_weights(model=model, writer=writer, global_step=current_global_step)
 
-        tqdm.write(f"Epoch {epoch+1}; Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
-            f"Training Pixel Accuracy: {metrics_train_epoch.get('Accuracy/train/pixelwise'):.3f}")
+        tqdm.write(f"Epoch {epoch+1}; "
+            f"Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
+            f"Training Pixel Accuracy: {multimetrics_train_epoch['OverallAccuracy']:.3f}")
 
         if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
             # use eval mode for validation, disabled batchnorm layers?
@@ -335,11 +329,6 @@ def train(
                     metrics_val_epoch.add_sample('Loss/val/total', loss.item())
                     metrics_val_epoch.add_sample('Loss/val/pixelclass', loss_pixelclass.item())
                     metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
-
-                    # calculate pixel-wise annoation accuracy for alyl imgs in batch
-                    acc = (mask[:,0,:,:] == torch.argmax(pred, dim=1))
-                    acc = (acc.sum()/acc.numel())
-                    metrics_val_epoch.add_sample('Accuracy/val/pixelwise', acc.item())
 
                     multimetrics.update(pred, mask)
 
@@ -379,8 +368,9 @@ def train(
                 if log_activations is not None and log_activations in ("all", "val"):
                     activations_logger.flush(global_step=current_global_step, phase="val")
 
-                tqdm.write(f"Epoch {epoch+1}; Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
-                    f"Validation Pixel Accuracy: {metrics_val_epoch.get('Accuracy/val/pixelwise'):.3f}")
+                tqdm.write(f"Epoch {epoch+1}; "
+                    f"Validation Loss: {metrics_val_epoch.get('Loss/val/total'):.4f}; " +
+                    f"Validation Pixel Accuracy: {multimetrics_val_epoch['OverallAccuracy']:.3f}")
                 
                 del val_samples, val_imgs, val_masks
 
