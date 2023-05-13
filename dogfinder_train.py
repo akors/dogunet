@@ -154,7 +154,7 @@ def train(
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
     criterion_class = torch.nn.CrossEntropyLoss(ignore_index=0)
-    criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
+    criterion_boundaries = DiceLoss(to_onehot_y=True, sigmoid=False, softmax=False)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     if checkpointfreq != 0:
@@ -259,7 +259,7 @@ def train(
 
             # compose loss by boundary loss and pixel classification
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-            loss_boundary = criterion_boundaries(pred_l, mask)
+            loss_boundary = criterion_boundaries(pred, mask)
 
             #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
             loss = loss_boundary
@@ -323,7 +323,7 @@ def train(
 
                     # compose loss by boundary loss and pixel classification
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-                    loss_boundary = criterion_boundaries(pred_l, mask)
+                    loss_boundary = criterion_boundaries(pred, mask)
 
                     #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
                     loss = loss_boundary
