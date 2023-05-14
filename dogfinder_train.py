@@ -96,6 +96,23 @@ class CheckpointSaver:
         else:
             pass # don't save if it's not time yet
 
+def weights_from_classbalance(year="2012"):
+    if year not in datasets.DATASET_STATS.keys():
+        raise KeyError(f"Precomputed dataset statistics for year {year} are not available")
+
+    class_pixelsums = datasets.DATASET_STATS["2012"]["class_pixels"].copy()
+
+    # remap void class to background
+    class_pixelsums[0] += class_pixelsums[255]
+    del class_pixelsums[255]
+
+    classbalance = torch.tensor([s for c, s in sorted(class_pixelsums.items())], dtype=torch.float)
+
+    inv = 1.0 / classbalance
+
+    total_pixels = classbalance.sum()
+    weights = total_pixels / (len(class_pixelsums) * classbalance)
+    return weights
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 input_debug=False
@@ -148,7 +165,10 @@ def train(
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
-    criterion_class = torch.nn.CrossEntropyLoss()
+    # calculate weights for crossentropy in an attempt to correct the class balance
+    classweights = weights_from_classbalance().to(device)
+
+    criterion_class = torch.nn.CrossEntropyLoss(weight=classweights)
     #criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
