@@ -45,7 +45,7 @@ def get_git_revision_short_hash():
 def get_git_diff():
     wd = os.path.dirname(__file__)
     try:
-        result = subprocess.run(['git', 'diff', 'HEAD'], stdout=subprocess.PIPE, cwd=wd)
+        result = subprocess.run(['git', 'diff', 'HEAD', '*.py'], stdout=subprocess.PIPE, cwd=wd)
     except FileNotFoundError:
         # Could not find git binary
         return None
@@ -53,7 +53,7 @@ def get_git_diff():
     if result.returncode != 0:
         return None
     else:
-        return result.stdout.decode('ascii').strip()
+        return result.stdout.decode('ascii', errors="ignore").strip()
 
 
 
