@@ -2,7 +2,10 @@
 
 import torch
 import torchvision
+import torchvision.transforms as T
+
 import transforms
+import metrics
 
 CLASSNAMES = {
     0: 'background',
@@ -56,3 +59,41 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     ds_val = torch.utils.data.ConcatDataset(ds_val_list)
 
     return ds_train, ds_val
+
+
+def calculate_dataset_stats(datadir: str="./data/", year="2012", split="trainval", num_workers=4, progressbar=None):
+    # open dataset for which to calculate stats
+    ds_check = torchvision.datasets.VOCSegmentation(
+        root=datadir,
+        year=year,
+        image_set=split,
+        download=False,
+        transform=T.ToTensor(), target_transform=T.PILToTensor()
+    )
+
+    # if not set, progress bar object is passthrough
+    if progressbar is None:
+        progressbar = lambda *args: args[0]
+
+    # create data loader
+    loader = torch.utils.data.DataLoader(ds_check, batch_size=1, shuffle=False, num_workers=num_workers)
+
+    # first pass metrics
+    firstpass = metrics.DatasetMetricsFirstpass()
+    for sample_idx, sample in enumerate(progressbar(loader, desc=year + " First Pass")):
+        firstpass.update(sample[0][0,:], sample[1][0,:])
+
+    # finalize firstpass metrics
+    result = firstpass.calculate()
+
+    # calculate second pass
+    secondpass = metrics.DatasetMetricsSecondpass(result)
+    for sample_idx, sample in enumerate(progressbar(loader, desc=year + " Second Pass")):
+        secondpass.update(sample[0][0,:], sample[1][0,:], sample_idx)
+
+    # finalize second pass results and append to first pass
+    result.update(
+        secondpass.calculate()
+    )
+
+    return result
