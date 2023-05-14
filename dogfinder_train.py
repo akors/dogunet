@@ -131,7 +131,9 @@ def train(
         print(m)
 
     # needed for visualization
-    inv_normalize = transforms.inv_normalize(transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD)
+    inv_normalize = transforms.inv_normalize(
+        datasets.DATASET_STATS["2012"]['rgb_mean'], datasets.DATASET_STATS["2012"]['rgb_std']
+    )
 
 
     model = brain_segmentation_pytorch.unet.UNet(

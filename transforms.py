@@ -50,11 +50,8 @@ class Resize_with_pad:
         else:
             return F.resize(image, [self.h, self.w], interpolation=self.interpolation, antialias=self.antialias)
 
-# it was revealed to me in a dream
-PASCAL_VOC_2012_MEAN=[0.485, 0.456, 0.406]
-PASCAL_VOC_2012_STD=[0.229, 0.224, 0.225]
-PASCAL_VOC_2012_CLASS_MAX=20
-
+# Highest class index that still describes an object and not background/void
+PASCAL_VOC_OBJECT_CLASS_MAX=20
 
 class ClipMaskClasses():
     def __init__(self, max_class: int) -> None:
@@ -97,7 +94,7 @@ def make_transforms(mean, std, augment_level=0):
 
     oplist.append(T.ConvertImageDtype(torch.float32))
     oplist.append(T.Normalize(mean=mean, std=std))
-    oplist.append(ClipMaskClasses(PASCAL_VOC_2012_CLASS_MAX))
+    oplist.append(ClipMaskClasses(PASCAL_VOC_OBJECT_CLASS_MAX))
 
     return T.Compose(oplist)
 
