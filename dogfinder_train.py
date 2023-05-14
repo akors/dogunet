@@ -14,7 +14,8 @@ import torch.utils.data
 import torchvision.datasets
 import torchvision.utils
 
-from brain_segmentation_pytorch.loss import DiceLoss
+#from brain_segmentation_pytorch.loss import DiceLoss
+from monai.losses import DiceLoss
 import brain_segmentation_pytorch.unet
 
 from torch.utils.tensorboard import SummaryWriter
@@ -154,8 +155,8 @@ def train(
     train_dataloader = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, num_workers=nproc)
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
-    criterion_class = torch.nn.CrossEntropyLoss(ignore_index=0)
-    criterion_boundaries = DiceLoss()
+    criterion_class = torch.nn.CrossEntropyLoss()
+    criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
     if checkpointfreq != 0:
@@ -254,13 +255,13 @@ def train(
 
             pred = model(img)
             pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
-            pred_s = torch.nn.functional.softmax(pred_l, dim=1)
+            #pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
-            mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
+            #mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
 
             # compose loss by boundary loss and pixel classification
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-            loss_boundary = criterion_boundaries(pred_s, mask_onehot)
+            loss_boundary = criterion_boundaries(pred_l, mask)
 
             loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
 
@@ -279,7 +280,7 @@ def train(
                 multimetrics.update(pred=pred, target=mask)
 
             # delete in the hopes of saving some memory
-            del img, mask, batch, mask_onehot
+            del img, mask, batch #, mask_onehot
 
             pass # end for loop training batches
 
@@ -317,13 +318,13 @@ def train(
 
                     pred = model(img)
                     pred_l = torch.logit(pred, eps=1e-6) # model outputs sigmoid, we also need logits
-                    pred_s = torch.nn.functional.softmax(pred_l, dim=1)
+                    #pred_s = torch.nn.functional.softmax(pred_l, dim=1)
 
-                    mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
+                    #mask_onehot = torch.zeros_like(pred).scatter_(1, mask, 1.)
 
                     # compose loss by boundary loss and pixel classification
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-                    loss_boundary = criterion_boundaries(pred_s, mask_onehot)
+                    loss_boundary = criterion_boundaries(pred_l, mask)
 
                     loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
 
@@ -338,7 +339,7 @@ def train(
                     if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="val")
 
                 # delete in the hopes of saving some memory
-                del img, mask, batch, mask_onehot
+                del img, mask, batch #, mask_onehot
 
                 metrics_val_epoch.write(global_step=current_global_step)
 
