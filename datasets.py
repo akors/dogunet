@@ -34,19 +34,66 @@ CLASSNAMES = {
 CLASS_MAX = 20
 CLASS_DOG = 12
 
+# These stats were calculated using the calculate_dataset_stats method below
+DATASET_STATS = {
+    "2012": {
+        "sample_count": 2913,
+        "rgb_mean": [
+            0.4568465189887431,
+            0.44091867824707537,
+            0.4047057680605658
+        ],
+        "rgb_std": [
+            0.2712492735621932,
+            0.2684503630844764,
+            0.28438828894633245
+        ],
+        "height_mean": 384.6728458633711,
+        "height_std": 63.5685314839425,
+        "width_mean": 471.9289392378991,
+        "width_std": 57.45974064982267,
+        "class_pixels": {
+            0: 361560627,
+            1: 3704393,
+            2: 1571148,
+            3: 4384132,
+            4: 2862913,
+            5: 3438963,
+            6: 8696374,
+            7: 7088203,
+            8: 12473466,
+            9: 4975284,
+            10: 5027769,
+            11: 6246382,
+            12: 9379340,
+            13: 4925676,
+            14: 5476081,
+            15: 24995476,
+            16: 2904902,
+            17: 4187268,
+            18: 7091464,
+            19: 7903243,
+            20: 4120989,
+            255: 28568409
+        },
+        "pixel_count": 521582502
+    }
+}
+
 def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     assert len(years) > 0, "Need to select at least one year between 2007 and 2012"
     ds_train_list = list()
     ds_val_list = list()
 
-    tr_train = transforms.make_transforms(
-        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment_level=augment_level)
-    
-    # validation transforms dont get data augmentation
-    tr_val = transforms.make_transforms(
-        transforms.PASCAL_VOC_2012_MEAN, transforms.PASCAL_VOC_2012_STD, augment_level=0)
-
     for year in years:
+        tr_train = transforms.make_transforms(
+            DATASET_STATS["2012"]['rgb_mean'], DATASET_STATS["2012"]['rgb_std'], augment_level=augment_level)
+        
+        # validation transforms dont get data augmentation
+        tr_val = transforms.make_transforms(
+            DATASET_STATS["2012"]['rgb_mean'], DATASET_STATS["2012"]['rgb_std'], augment_level=0)
+
+
         # create datasets with our transforms. assume they're already downloaded
         ds_train_list.append(torchvision.datasets.wrap_dataset_for_transforms_v2(torchvision.datasets.VOCSegmentation(
             root=datadir, year=year, image_set="train", download=False, transforms=tr_train
