@@ -115,24 +115,34 @@ class DatasetMetricsFirstpass():
         result['width_std'] = np.std(a)
 
         class_pixelcounts: Dict[int, int] = dict()
+        class_objectcounts: Dict[int, int] = dict()
         for imgclasses in self.class_pixelcount:
             for classidx, pixelcount_of_class in imgclasses.items():
                 if classidx not in class_pixelcounts.keys():
                     class_pixelcounts[classidx] = 0
+                    class_objectcounts[classidx] = 0
 
                 class_pixelcounts[classidx] += pixelcount_of_class
+                class_objectcounts[classidx] += (pixelcount_of_class > 0)
+
         #result['numclasses_mean'] = self.numclasses_mean
 
-        # sort pixel counts by label
+        # sort pixel,object counts by label
         class_pixelcounts = dict(sorted(class_pixelcounts.items()))
         result['class_pixels'] = class_pixelcounts
 
-        # total pixel count
-        total_pixels = 0
-        for p in class_pixelcounts.values():
-            total_pixels += p
+        class_objectcounts = dict(sorted(class_objectcounts.items()))
+        result['class_objects'] = class_objectcounts
 
-        result['pixel_count'] = total_pixels
+        # total pixel count
+        result['pixel_count'] = 0
+        for p in class_pixelcounts.values():
+            result['pixel_count'] += p
+
+        # total object count
+        result['object_count'] = 0
+        for p in class_objectcounts.values():
+            result['object_count'] += p
 
         return result
 
