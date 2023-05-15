@@ -70,7 +70,7 @@ class CheckpointSaver:
         self.__disable = checkpoint_freq == 0
 
     def save_now(self, epoch: int, numbered_chpt: bool = False):
-        if self.__checkpoint_freq < 0:
+        if self.__checkpoint_freq == 0:
             return
 
         # if checkpointing is enabled, save final training checkpoint
