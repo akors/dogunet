@@ -20,7 +20,7 @@ import brain_segmentation_pytorch.unet
 
 from torch.utils.tensorboard import SummaryWriter
 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 import datasets
 import transforms
