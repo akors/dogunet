@@ -101,12 +101,17 @@ def weights_from_classbalance(year="2012"):
         raise KeyError(f"Precomputed dataset statistics for year {year} are not available")
 
     class_pixelsums = datasets.DATASET_STATS["2012"]["class_pixels"].copy()
+    class_objectsums = datasets.DATASET_STATS["2012"]["class_objects"].copy()
 
     # remap void class to background
     class_pixelsums[0] += class_pixelsums[255]
     del class_pixelsums[255]
 
-    classbalance = torch.tensor([s for c, s in sorted(class_pixelsums.items())], dtype=torch.float)
+    # ignore void class objects because they will be everywher and they count wards background for dogunet
+    del class_objectsums[255]
+
+    #classbalance = torch.tensor([s for c, s in sorted(class_pixelsums.items())], dtype=torch.float)
+    classbalance = torch.tensor([s for c, s in sorted(class_objectsums.items())], dtype=torch.float)
 
     inv = 1.0 / classbalance
 
