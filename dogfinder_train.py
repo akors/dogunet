@@ -397,7 +397,7 @@ def train(
         chpt_saver.save_now(epoch)
 
     # save model parameters only
-    torch.save(model.state_dict(), model_name + ".pt")
+    torch.save(model.state_dict(), os.path.join(checkpointdir, model_name + ".pt"))
 
     writer.close()
     return 0
