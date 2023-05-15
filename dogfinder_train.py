@@ -125,17 +125,10 @@ def train(
     print(f"Training dataset length: {len(ds_train)}")
     print(f"Validation dataset length: {len(ds_val)}")
 
-    if checkpointfreq != 0:
-        m = f"Writing checkpoints to {os.path.join(checkpointdir, model_name)}.chpt.pt"
-        if checkpointfreq > 0:
-            m += f" and {os.path.join(checkpointdir, model_name)}.chpt*.pt"
-        print(m)
-
     # needed for visualization
     inv_normalize = transforms.inv_normalize(
         datasets.DATASET_STATS["2012"]['rgb_mean'], datasets.DATASET_STATS["2012"]['rgb_std']
     )
-
 
     model = brain_segmentation_pytorch.unet.UNet(
         in_channels=3,
@@ -159,9 +152,15 @@ def train(
     criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+
     if checkpointfreq != 0:
         if not os.path.isdir(checkpointdir):
             os.mkdir(checkpointdir)
+
+        print(f"Writing recent/last checkpoints to {os.path.join(checkpointdir, model_name)}.chpt.pt")
+        if checkpointfreq > 0:
+            print(f"Writing intermediate checkpoints to {os.path.join(checkpointdir, model_name)}.chpt*.pt")
+
         chpt_saver = CheckpointSaver(basepath=os.path.join(checkpointdir, model_name), model=model, optimizer=optimizer,
                                      batch_size=batch_size, checkpoint_freq=checkpointfreq)
     else:
@@ -182,6 +181,7 @@ def train(
         comment += run_comment
 
     writer = SummaryWriter(comment=comment)
+    print("TensorBoard logdir: ", writer.get_logdir())
 
     # store git hash and diff, if available
     git_hash = get_git_revision_short_hash()
