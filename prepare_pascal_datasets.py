@@ -2,6 +2,7 @@
 
 import json
 import argparse
+import sys
 from tqdm import tqdm
 
 import torchvision.datasets
@@ -33,8 +34,10 @@ if __name__ == "__main__":
     parser.add_argument('--dataroot', default="./data/", help="Root of the data directory. Default is ./data")
     parser.add_argument('--suite', default="trainval", choices=("train", "val", "trainval"),
         help="Which image set to process. Default is trainval.")
+    parser.add_argument("-o", "--outfile", type=argparse.FileType(mode='wt'), default=sys.stdout,
+        help="Output file. By default STDOUT.")
 
     args = parser.parse_args()
     stats = do_prepare(dataroot=args.dataroot, years=args.years, download=args.download, suite=args.suite)
 
-    print(json.dumps(stats, indent=4))
+    args.outfile.write(json.dumps(stats, indent=4))
