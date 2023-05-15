@@ -21,6 +21,20 @@
             "env": {"CUDA_LAUNCH_BLOCKING" : "1"},
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Dataset Metrics",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/prepare_pascal_datasets.py",
+            "args": [
+                "2012",
+                "--suite", "trainval",
+                // "--outfile", "./data/voc2012_stats.json"
+            ],
+            "env": {"CUDA_LAUNCH_BLOCKING" : "1"},
+            "console": "integratedTerminal",
+            "justMyCode": true
         }
     ]
 }
