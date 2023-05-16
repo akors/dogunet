@@ -1,0 +1,17 @@
+name: ml
+channels:
+  - defaults
+dependencies:
+  - jupyterlab
+  - matplotlib
+  - ipywidgets
+  - torchvision
+  - pytorch
+  - pytorch-cuda=11.7
+  - tqdm
+  - ipympl
+  - autopep8
+  - pytorch-mutex==1.0=cuda
+  - torchmetrics
+  - monai
+prefix: /home/akors/.conda/envs/ml
