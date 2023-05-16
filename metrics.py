@@ -106,6 +106,17 @@ class DatasetMetricsFirstpass():
 
         self.num_samples += 1
         pass
+    
+    def concatenate_with(self, other):
+        self.num_samples += other.num_samples
+
+        # append per batch stat list of other firstpass stat lists
+        self.rgb_means.extend(other.rgb_means)
+        self.heights.extend(other.heights)
+        self.widths.extend(other.widths)
+        self.class_pixelcount.extend(other.class_pixelcount)
+
+        pass
 
 
     def calculate(self):

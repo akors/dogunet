@@ -133,14 +133,25 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     return ds_train, ds_val
 
 
-def calculate_dataset_stats(datadir: str="./data/", years: List[str]=None, split="trainval", num_workers=4, progressbar=None):
+def calculate_dataset_stats(
+    datadir: str = "./data/",
+    years: List[str] = None,
+    split="trainval",
+    num_workers=4,
+    progressbar=None,
+    combined=True
+):
     years = years or ["2012"]
 
     # if not set, progress bar object is passthrough
     if progressbar is None:
         progressbar = lambda *args: args[0]
 
-    ds_check_list = list()
+    loader_list = list()
+
+
+    # we will continue updating with samples from each year
+    firstpass_combined = metrics.DatasetMetricsFirstpass() if combined else None
 
     result_years = dict()
     for year in years:
@@ -152,10 +163,10 @@ def calculate_dataset_stats(datadir: str="./data/", years: List[str]=None, split
             download=False,
             transform=T.ToTensor(), target_transform=T.PILToTensor()
         )
-        ds_check_list.append(ds_check)
 
         # create data loader
         loader = torch.utils.data.DataLoader(ds_check, batch_size=1, shuffle=False, num_workers=num_workers)
+        loader_list.append(loader)
 
         # first pass metrics
         firstpass = metrics.DatasetMetricsFirstpass()
@@ -175,5 +186,28 @@ def calculate_dataset_stats(datadir: str="./data/", years: List[str]=None, split
 
         # store in year result dictionary
         result_years[year] = result
+
+        # append this years dataset with combined dataset firstpass stats
+        if firstpass_combined: firstpass_combined.concatenate_with(firstpass)
+
+    if combined:
+        combined_ds_name = "+".join(years)
+
+        # after completing first pass for combined dataset, we have to run the second pass again
+        result_combined = firstpass_combined.calculate()
+        secondpass_combined = metrics.DatasetMetricsSecondpass(result_combined)
+
+        sample_idx = 0
+        for loader in loader_list:
+            for sample in progressbar(loader, desc=combined_ds_name+" Second Pass"):
+                secondpass_combined.update(sample[0][0,:], sample[1][0,:], sample_idx)
+
+                sample_idx += 1
+
+        # store secondpass results in firstpass results
+        result_combined.update(secondpass_combined.calculate())
+
+        # add combined dasaet into result dict
+        result_years[combined_ds_name] = result_combined
 
     return result_years
