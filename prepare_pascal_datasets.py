@@ -17,10 +17,7 @@ def do_prepare(dataroot, years, download, suite):
             ds = torchvision.datasets.VOCSegmentation(root=dataroot, year=year, image_set=suite, download=download)
             del ds
 
-    stats = dict()
-    for year in years:
-        result = datasets.calculate_dataset_stats(datadir=dataroot, year=year, split=suite, progressbar=tqdm)
-        stats[year] = result
+    stats = datasets.calculate_dataset_stats(datadir=dataroot, years=years, split=suite, progressbar=tqdm)
 
     return stats
 

@@ -1,5 +1,6 @@
 
 
+from typing import List
 import torch
 import torchvision
 import torchvision.transforms as T
@@ -132,39 +133,47 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     return ds_train, ds_val
 
 
-def calculate_dataset_stats(datadir: str="./data/", year="2012", split="trainval", num_workers=4, progressbar=None):
-    # open dataset for which to calculate stats
-    ds_check = torchvision.datasets.VOCSegmentation(
-        root=datadir,
-        year=year,
-        image_set=split,
-        download=False,
-        transform=T.ToTensor(), target_transform=T.PILToTensor()
-    )
+def calculate_dataset_stats(datadir: str="./data/", years: List[str]=None, split="trainval", num_workers=4, progressbar=None):
+    years = years or ["2012"]
 
     # if not set, progress bar object is passthrough
     if progressbar is None:
         progressbar = lambda *args: args[0]
 
-    # create data loader
-    loader = torch.utils.data.DataLoader(ds_check, batch_size=1, shuffle=False, num_workers=num_workers)
+    ds_check_list = list()
 
-    # first pass metrics
-    firstpass = metrics.DatasetMetricsFirstpass()
-    for sample_idx, sample in enumerate(progressbar(loader, desc=year + " First Pass")):
-        firstpass.update(sample[0][0,:], sample[1][0,:])
+    result_years = dict()
+    for year in years:
+        # open dataset for which to calculate stats
+        ds_check = torchvision.datasets.VOCSegmentation(
+            root=datadir,
+            year=year,
+            image_set=split,
+            download=False,
+            transform=T.ToTensor(), target_transform=T.PILToTensor()
+        )
+        ds_check_list.append(ds_check)
 
-    # finalize firstpass metrics
-    result = firstpass.calculate()
+        # create data loader
+        loader = torch.utils.data.DataLoader(ds_check, batch_size=1, shuffle=False, num_workers=num_workers)
 
-    # calculate second pass
-    secondpass = metrics.DatasetMetricsSecondpass(result)
-    for sample_idx, sample in enumerate(progressbar(loader, desc=year + " Second Pass")):
-        secondpass.update(sample[0][0,:], sample[1][0,:], sample_idx)
+        # first pass metrics
+        firstpass = metrics.DatasetMetricsFirstpass()
+        for sample_idx, sample in enumerate(progressbar(loader, desc=year + " First Pass")):
+            firstpass.update(sample[0][0,:], sample[1][0,:])
 
-    # finalize second pass results and append to first pass
-    result.update(
-        secondpass.calculate()
-    )
+        # finalize firstpass metrics
+        result = firstpass.calculate()
 
-    return result
+        # calculate second pass
+        secondpass = metrics.DatasetMetricsSecondpass(result)
+        for sample_idx, sample in enumerate(progressbar(loader, desc=year + " Second Pass")):
+            secondpass.update(sample[0][0,:], sample[1][0,:], sample_idx)
+
+        # finalize second pass results and append to first pass
+        result.update(secondpass.calculate())
+
+        # store in year result dictionary
+        result_years[year] = result
+
+    return result_years
