@@ -266,7 +266,8 @@ def train(
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
             loss_boundary = criterion_boundaries(pred_l, mask)
 
-            loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+            #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+            loss = loss_pixelclass
 
             metrics_train_epoch.add_sample('Loss/train/total', loss.item())
             metrics_train_epoch.add_sample('Loss/train/pixelclass', loss_pixelclass.item())
@@ -329,7 +330,8 @@ def train(
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
                     loss_boundary = criterion_boundaries(pred_l, mask)
 
-                    loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+                    #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
+                    loss = loss_pixelclass
 
                     metrics_val_epoch.set_step(val_batch_idx)
                     metrics_val_epoch.add_sample('Loss/val/total', loss.item())
