@@ -9,12 +9,13 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/dogfinder_train.py",
-            "args": [ "--name=test", "--learningrate=1e-3", "--validationfreq=1",
+            "args": [ "--name=test", "--learningrate=1e-3",
                 // "--resume=./checkpoints/test.chpt.pt",
                 "--runcomment=dbg",
                 // "--batchsize=8",
                 // "--unet-features=32",
                 "--epochs=1",
+                "--validationfreq=1",
                 // "--augmentation-level=1",
                 // "--log-weights",
             ],
@@ -28,9 +29,10 @@
             "request": "launch",
             "program": "${workspaceFolder}/prepare_pascal_datasets.py",
             "args": [
+                // "--download",
                 "2012",
                 "--suite", "trainval",
-                // "--outfile", "./data/voc2012_stats.json"
+                // "--outfile", "./data/voc_stats.json"
             ],
             "env": {"CUDA_LAUNCH_BLOCKING" : "1"},
             "console": "integratedTerminal",
