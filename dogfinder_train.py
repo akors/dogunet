@@ -108,7 +108,7 @@ def train(
     num_epochs: int,
     batch_size: int,
     unet_features: int=32,
-    nproc: int=8,
+    nproc: int=2,
     learning_rate: float=None,
     val_epoch_freq: int=10,
     resume: Optional[str]=None,
@@ -419,8 +419,8 @@ if __name__ == "__main__":
                         help='Batch size for training (default: 8)')
     parser.add_argument('--unet-features', type=int, default=32,
                         help='Number of feature channels for UNet intermediate convolutions (default: 32)')                         
-    parser.add_argument('-j', '--nproc', type=int, default=8,
-                        help='Number of CPU workers that will be used to load/transform data (default: 8)')
+    parser.add_argument('-j', '--nproc', type=int, default=2,
+                        help='Number of CPU workers that will be used to load/transform data (default: 2)')
     parser.add_argument('-l', '--learningrate', type=float, default=1e-3,
                         help='Learning Rate (default: torch defaults)')
     parser.add_argument('--validationfreq', type=int, default=20,
