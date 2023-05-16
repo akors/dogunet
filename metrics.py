@@ -74,6 +74,8 @@ class MultiMetrics():
 
     def reset(self):
         self.confm_metric.reset()
+        self.overall_correct_pixels = 0
+        self.overall_pixels = 0
 
 
 class DatasetMetricsFirstpass():
