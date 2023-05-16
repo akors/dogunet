@@ -88,7 +88,7 @@ def make_transforms(mean, std, augment_level=0):
         oplist.append(T.RandomHorizontalFlip())
     if augment_level >= 2:
         oplist.append(T.ColorJitter(brightness=.3, hue=.2, contrast=.4, saturation=.3))
-        oplist.append(T.GaussianBlur(kernel_size=[5, 5], sigma=2))
+        #oplist.append(T.GaussianBlur(kernel_size=[5, 5], sigma=2))
     
     assert augment_level <= 2, "Augmentation level "+str(augment_level)+"?? What is this, the future??"
 
