@@ -18,20 +18,36 @@ class MultiMetrics():
     ]
     def __init__(self) -> None:
         self.confm_metric = monai.metrics.ConfusionMatrixMetric(metric_name=MultiMetrics.metric_names)
+        self.overall_correct_pixels = 0
+        self.overall_pixels = 0
     
-    def update(self, pred, target):
+    def calculate_overall_accuracy(self) -> float:
+        return float(self.overall_correct_pixels) / float(self.overall_pixels)
+
+    def update(self, pred, target, detailed=True):
         with torch.no_grad():
-            mask_onehot = torch.zeros_like(pred).scatter_(1, target.to(dtype=torch.long), 1.)
-    
             pred_amax = torch.argmax(pred, dim=1, keepdim=True).to(dtype=torch.long)
+            
+            self.overall_correct_pixels += (pred_amax == target).sum().item()
+            self.overall_pixels +=  target.shape[0] * target.shape[-2] * target.shape[-1]
+
+            if not detailed:
+                return None
+            
+            mask_onehot = torch.zeros_like(pred).scatter_(1, target.to(dtype=torch.long), 1.)
             pred_binarized = torch.zeros_like(pred).scatter_(1, pred_amax, 1.)
-        
             m = self.confm_metric(y_pred=pred_binarized, y=mask_onehot)
+
         return m
 
-    def calculate(self) -> Dict[str, float]:
+    def calculate(self, detailed=True) -> Dict[str, float]:
         results = dict()
-        
+
+        results['OverallAccuracy'] = self.calculate_overall_accuracy()
+
+        if not detailed:
+            return results
+
         # calculate aggregate per-class metrics, will sum up all pixels that were added with
         # the update() method.
         #
@@ -53,16 +69,8 @@ class MultiMetrics():
         perclass_metric = aggregate_metrics[4]
         results['MeanIoU'] = perclass_metric.nanmean().item()
 
-        confm = self.confm_metric.get_buffer()
-        tp = confm[:,:,0]
-        fp = confm[:,:,1]
-
-        # ConfusionMatrixMetric aggregates hits per-class. We can recover the overall hits by summing over only the true
-        # positives and NOT the true negatives, because the true negatives from each class will be contained within the
-        # true positives of the matching class
-        results['OverallAccuracy'] = (tp.sum() / (tp+fp).sum()).item()
-
         return results
+
 
     def reset(self):
         self.confm_metric.reset()

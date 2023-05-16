@@ -218,6 +218,9 @@ def train(
 
     ds_train_len = len(ds_train)
     for epoch in tqdm(range(resume_epoch, num_epochs+resume_epoch), desc="Epochs", unit="ep"):
+        # will this epoch need a validation run and detailed metrics
+        is_validating_poch = (epoch % val_epoch_freq) == (val_epoch_freq - 1)
+
         # ensure model is in training mode
         model.train(True)
 
@@ -277,7 +280,7 @@ def train(
                 # flush activation histograms for this epoch
                 if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="train")
 
-                multimetrics.update(pred=pred, target=mask)
+                multimetrics.update(pred=pred, target=mask, detailed=is_validating_poch)
 
             # delete in the hopes of saving some memory
             del img, mask, batch #, mask_onehot
@@ -286,7 +289,7 @@ def train(
 
         metrics_train_epoch.write(global_step=current_global_step)
 
-        multimetrics_train_epoch = multimetrics.calculate()
+        multimetrics_train_epoch = multimetrics.calculate(detailed=is_validating_poch)
         logutils.log_metrics_dict(multimetrics_train_epoch, writer, global_step=current_global_step, prefix="Metrics/train/")
 
         if checkpointfreq > 0:
@@ -299,7 +302,7 @@ def train(
             f"Training Loss: {metrics_train_epoch.get('Loss/train/total'):.4f}; " +
             f"Training Pixel Accuracy: {multimetrics_train_epoch['OverallAccuracy']:.3f}")
 
-        if epoch % val_epoch_freq == val_epoch_freq - 1: # if validating
+        if is_validating_poch:
             # use eval mode for validation, disabled batchnorm layers?
             model.train(False)
 
@@ -333,7 +336,7 @@ def train(
                     metrics_val_epoch.add_sample('Loss/val/pixelclass', loss_pixelclass.item())
                     metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
 
-                    multimetrics.update(pred, mask)
+                    multimetrics.update(pred, mask, detailed=is_validating_poch)
 
                     # flush activation histograms for this epoch
                     if activations_logger is not None: activations_logger.flush(global_step=current_global_step, phase="val")
@@ -343,7 +346,7 @@ def train(
 
                 metrics_val_epoch.write(global_step=current_global_step)
 
-                multimetrics_val_epoch = multimetrics.calculate()
+                multimetrics_val_epoch = multimetrics.calculate(detailed=is_validating_poch)
                 logutils.log_metrics_dict(multimetrics_val_epoch, writer, global_step=current_global_step, prefix="Metrics/val/")
 
                 # prepare comparison grid for the first three samples in training dataset
@@ -377,7 +380,7 @@ def train(
                 
                 del val_samples, val_imgs, val_masks
 
-            pass # if validating
+            pass # if is_validating_poch
 
     if write_hparams:
         writer.add_hparams(
