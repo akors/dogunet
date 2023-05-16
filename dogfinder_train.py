@@ -149,7 +149,7 @@ def train(
     val_dataloader = torch.utils.data.DataLoader(ds_val, batch_size=batch_size, shuffle=True, num_workers=nproc)
 
     criterion_class = torch.nn.CrossEntropyLoss()
-    criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
+    #criterion_boundaries = DiceLoss(to_onehot_y=True, softmax=True)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 
@@ -264,14 +264,14 @@ def train(
 
             # compose loss by boundary loss and pixel classification
             loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-            loss_boundary = criterion_boundaries(pred_l, mask)
+            #loss_boundary = criterion_boundaries(pred_l, mask)
 
             #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
             loss = loss_pixelclass
 
             metrics_train_epoch.add_sample('Loss/train/total', loss.item())
             metrics_train_epoch.add_sample('Loss/train/pixelclass', loss_pixelclass.item())
-            metrics_train_epoch.add_sample('Loss/train/boundary', loss_boundary.item())
+            #metrics_train_epoch.add_sample('Loss/train/boundary', loss_boundary.item())
             
             optimizer.zero_grad()
             loss.backward()
@@ -328,7 +328,7 @@ def train(
 
                     # compose loss by boundary loss and pixel classification
                     loss_pixelclass = criterion_class(pred_l, mask[:,0,:,:])
-                    loss_boundary = criterion_boundaries(pred_l, mask)
+                    #loss_boundary = criterion_boundaries(pred_l, mask)
 
                     #loss = (1.-boundary_loss_weight) * loss_pixelclass + boundary_loss_weight * loss_boundary
                     loss = loss_pixelclass
@@ -336,7 +336,7 @@ def train(
                     metrics_val_epoch.set_step(val_batch_idx)
                     metrics_val_epoch.add_sample('Loss/val/total', loss.item())
                     metrics_val_epoch.add_sample('Loss/val/pixelclass', loss_pixelclass.item())
-                    metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
+                    #metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
 
                     multimetrics.update(pred, mask, detailed=is_validating_poch)
 
