@@ -29,8 +29,8 @@ if __name__ == "__main__":
         help="For which years to process the PASCAL VOC datasets")
     parser.add_argument('-d', '--download',  action="store_true", help="If the dataset is not present, download it")
     parser.add_argument('--dataroot', default="./data/", help="Root of the data directory. Default is ./data")
-    parser.add_argument('--suite', default="trainval", choices=("train", "val", "trainval"),
-        help="Which image set to process. Default is trainval.")
+    parser.add_argument('--suite', default="train", choices=("train", "val", "trainval"),
+        help="Which image set to process. Default is train.")
     parser.add_argument("-o", "--outfile", type=argparse.FileType(mode='wt'), default=sys.stdout,
         help="Output file. By default STDOUT.")
 

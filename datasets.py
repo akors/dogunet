@@ -136,7 +136,7 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
 def calculate_dataset_stats(
     datadir: str = "./data/",
     years: List[str] = None,
-    split="trainval",
+    split="train",
     num_workers=4,
     progressbar=None,
     combined=True
