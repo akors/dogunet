@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Prepare dogunet datasets')
 
     parser.add_argument('years', nargs='+', default=["2012"], metavar="YEAR",
-        choices=("2007", "2009", "2010", "2011","2012"),
+        choices=("2007", "2008", "2009", "2010", "2011","2012"),
         help="For which years to process the PASCAL VOC datasets")
     parser.add_argument('-d', '--download',  action="store_true", help="If the dataset is not present, download it")
     parser.add_argument('--dataroot', default="./data/", help="Root of the data directory. Default is ./data")
