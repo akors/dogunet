@@ -7,8 +7,25 @@ import numpy as np
 import torch
 import torchvision.utils
 
+PASCAL_VOC_OBJECT_CLASS_MAX=20
+
+def cm_to_tensor(cm: matplotlib.colors.ListedColormap):
+    # turn listed colormap into a torch tensor
+    cm_t = torch.tensor(cm.colors)[:,0:3]
+
+    ## map class zero to black
+    #cm_t = torch.cat((torch.Tensor([[0, 0, 0]]), cm_t), dim=0)
+
+    return cm_t
+
+# create custom 21-class colormap by prepending black. black will be used as background
+cm_tab21 = mcolors.ListedColormap([(0.0, 0.0, 0.0, 1.0)] + [matplotlib.cm.tab20(i) for i in range(20)])
+cm_tab21_t = cm_to_tensor(cm_tab21)
+
+
 def imshow_tensor(img: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=None):
     img = img.permute(1, 2, 0).numpy()
+    img = img.clip(0.0, 1.0)
     if ax is None:
         ax = plt
     ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
@@ -19,39 +36,36 @@ def imshow_mask_tensor(mask: torch.Tensor, ax: Optional[matplotlib.axes.Axes]=No
     if ax is None:
         ax = plt
     ax.tick_params(bottom=False, left=False, labelbottom=False, labelleft=False)
-    return ax.imshow(mask, cmap='tab20', interpolation_stage='rgba')
+    return ax.imshow(mask, cmap=cm_tab21, vmin=0, vmax=PASCAL_VOC_OBJECT_CLASS_MAX, interpolation_stage='rgba')
 
-def plot_prediction_comparison(img: torch.Tensor, prediction_mask: torch.Tensor, target_mask: torch.Tensor):
-    fig, axs = plt.subplots(1,3, gridspec_kw={'wspace': 0.05})
+
+def plot_prediction_comparison(
+    img: torch.Tensor,
+    prediction_mask: torch.Tensor,
+    target_mask: Optional[torch.Tensor] = None,
+    fig=None
+):
+    fig = fig if fig else plt.gcf()
+
+    axs = fig.subplots(1, 2 + int(target_mask is not None), gridspec_kw={'wspace': 0.05})
 
     imshow_tensor(img, ax=axs[0])
     axs[0].set_title("Input image")
+
     imshow_mask_tensor(prediction_mask, ax=axs[1])
     axs[1].set_title("Predicted mask")
-    imshow_mask_tensor(target_mask, ax=axs[2])
-    axs[2].set_title("Target mask")
 
+    if target_mask is not None:
+        imshow_mask_tensor(target_mask, ax=axs[2])
+        axs[2].set_title("Target mask")
 
     # Remove the ticks on the subplots
     for ax in axs:
         ax.set_xticks([])
         ax.set_yticks([])
     
-    return fig
+    return fig, axs
 
-def cm_to_tensor(cm: matplotlib.colors.ListedColormap):
-    # turn listed colormap into a torch tensor
-    cm_t = torch.tensor(cm.colors)[:,0:3]
-    #
-
-    ## map class zero to black
-    #cm_t = torch.cat((torch.Tensor([[0, 0, 0]]), cm_t), dim=0)
-
-    return cm_t
-
-# create custom 21-class colormap by prepending black. black will be used as background
-cm_tab21 = mcolors.ListedColormap([(0.0, 0.0, 0.0, 1.0)] + [matplotlib.cm.tab20(i) for i in range(20)])
-cm_tab21_t = cm_to_tensor(cm_tab21)
 
 def classmask_to_colormask(mask: torch.Tensor, cm: torch.Tensor = cm_tab21_t) -> torch.Tensor:
     assert mask.dim() == 3, "Mask should be a 3D tensor with B x H x W"
@@ -71,6 +85,25 @@ def classmask_to_colormask(mask: torch.Tensor, cm: torch.Tensor = cm_tab21_t) ->
             cm[k, :].unsqueeze(0)
 
     return mask_colormapped
+
+
+def make_colormap_legend(ax, fig, cmap, class_names: List[str], only_classes: Optional[List[int]]=None):
+    if only_classes is None:
+        only_classes = range(len(class_names))
+
+    # turn any iterable into list, because we want random access
+    if not isinstance(class_names, List) and isinstance(class_names, Iterable):
+        class_names = [n for n in class_names]
+
+    # Create a dictionary with the class names and their corresponding color from the colormap
+    legend_dict = dict(zip(class_names, cmap(np.linspace(0, 1, len(class_names)))))
+    legend_dict = {class_names[c] : cmap(c) for c in only_classes}
+
+    for class_idx in only_classes:
+        class_name = class_names[class_idx]
+        ax.plot([], [], color=legend_dict[class_name], linewidth=10, label=class_name)
+    
+    fig.legend(loc='lower center', ncol=5)
 
 def plot_colormap_legend(cmap, class_names: List[str], only_classes: Optional[List[int]]=None):
     if only_classes is None:
