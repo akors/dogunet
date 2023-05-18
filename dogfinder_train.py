@@ -198,14 +198,14 @@ def train(
     # initialize epoch metrics
     metrics_train_epoch = MetricsWriter(writer, max_len=len(train_dataloader), scalar_tags=[
         "Loss/train/total",
-        "Loss/train/pixelclass",
-        "Loss/train/boundary",
+        #"Loss/train/pixelclass",
+        #"Loss/train/boundary",
     ])
 
     metrics_val_epoch = MetricsWriter(writer, max_len=len(val_dataloader), scalar_tags=[
         "Loss/val/total",
-        "Loss/val/pixelclass",
-        "Loss/val/boundary",
+        #"Loss/val/pixelclass",
+        #"Loss/val/boundary",
     ])
 
     multimetrics = MultiMetrics()
@@ -270,7 +270,7 @@ def train(
             loss = loss_pixelclass
 
             metrics_train_epoch.add_sample('Loss/train/total', loss.item())
-            metrics_train_epoch.add_sample('Loss/train/pixelclass', loss_pixelclass.item())
+            #metrics_train_epoch.add_sample('Loss/train/pixelclass', loss_pixelclass.item())
             #metrics_train_epoch.add_sample('Loss/train/boundary', loss_boundary.item())
             
             optimizer.zero_grad()
@@ -335,7 +335,7 @@ def train(
 
                     metrics_val_epoch.set_step(val_batch_idx)
                     metrics_val_epoch.add_sample('Loss/val/total', loss.item())
-                    metrics_val_epoch.add_sample('Loss/val/pixelclass', loss_pixelclass.item())
+                    #metrics_val_epoch.add_sample('Loss/val/pixelclass', loss_pixelclass.item())
                     #metrics_val_epoch.add_sample('Loss/val/boundary', loss_boundary.item())
 
                     multimetrics.update(pred, mask, detailed=is_validating_poch)
