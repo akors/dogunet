@@ -17,6 +17,7 @@
                 "--epochs=1",
                 "--validationfreq=1",
                 // "--augmentation-level=1",
+                // "--dataset-years", "2011", "2012",
                 // "--log-weights",
             ],
             "env": {"CUDA_LAUNCH_BLOCKING" : "1"},
