@@ -116,19 +116,18 @@ def train(
     checkpointdir: str="./checkpoints/",
     checkpointfreq: int=0,
     augment_level: int=0,
+    dataset_years=["2012"],
     log_activations: Optional[str]=None,
     log_weights: bool=False
 ):
     matplotlib.use('Agg')
 
-    ds_train, ds_val = datasets.make_datasets(augment_level=augment_level)
+    ds_train, ds_val = datasets.make_datasets(augment_level=augment_level, years=dataset_years)
     print(f"Training dataset length: {len(ds_train)}")
     print(f"Validation dataset length: {len(ds_val)}")
 
     # needed for visualization
-    inv_normalize = transforms.inv_normalize(
-        datasets.DATASET_STATS["2012"]['rgb_mean'], datasets.DATASET_STATS["2012"]['rgb_std']
-    )
+    inv_normalize = transforms.inv_normalize(*datasets.get_dataset_mean_std(dataset_years))
 
     model = brain_segmentation_pytorch.unet.UNet(
         in_channels=3,
@@ -435,6 +434,8 @@ if __name__ == "__main__":
                         help="Checkpoint frequency in epochs. 0 for off. -1 for only final.")
     parser.add_argument('-a', '--augmentation-level', type=int, default=1,
                         help="Augmentation level. 0 for disabled, 1 for basic geometric. (default: 1)")
+    parser.add_argument('--dataset-years', nargs='+', default=["2012"], 
+                        help="Which PASCAL VOC competition years to take into the dataset. Defaults to 2012 only.")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
                         help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated "+
                         "list of layers, as defined by the model."
@@ -457,6 +458,7 @@ if __name__ == "__main__":
         checkpointdir=args.checkpointdir,
         checkpointfreq=args.checkpointfreq,
         augment_level=args.augmentation_level,
+        dataset_years=args.dataset_years,
         log_activations=args.log_activations,
         log_weights=args.log_weights
     )
