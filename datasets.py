@@ -218,7 +218,7 @@ def calculate_dataset_stats(
         # append this years dataset with combined dataset firstpass stats
         if firstpass_combined: firstpass_combined.concatenate_with(firstpass)
 
-    if combined:
+    if combined and len(years) > 1:
         combined_ds_name = "+".join(sorted(years))
 
         # after completing first pass for combined dataset, we have to run the second pass again
