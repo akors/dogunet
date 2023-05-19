@@ -1,6 +1,10 @@
 
 
 from typing import List
+import warnings
+
+import numpy as np
+
 import torch
 import torchvision
 import torchvision.transforms as T
@@ -111,12 +115,10 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
     ds_val_list = list()
 
     for year in years:
-        tr_train = transforms.make_transforms(
-            DATASET_STATS["2012"]['rgb_mean'], DATASET_STATS["2012"]['rgb_std'], augment_level=augment_level)
+        tr_train = transforms.make_transforms(*get_dataset_mean_std(years), augment_level=augment_level)
         
         # validation transforms dont get data augmentation
-        tr_val = transforms.make_transforms(
-            DATASET_STATS["2012"]['rgb_mean'], DATASET_STATS["2012"]['rgb_std'], augment_level=0)
+        tr_val = transforms.make_transforms(*get_dataset_mean_std(years), augment_level=0)
 
 
         # create datasets with our transforms. assume they're already downloaded
@@ -211,3 +213,33 @@ def calculate_dataset_stats(
         result_years[combined_ds_name] = result_combined
 
     return result_years
+
+def get_dataset_mean_std(years=["2012"]):
+    combinedname = "+".join(sorted(years))
+
+    # check if combined stats are available
+    if combinedname in DATASET_STATS:
+        return DATASET_STATS[combinedname]['rgb_mean'], DATASET_STATS[combinedname]['rgb_std']
+
+    ds_stats = dict()
+    if len(years) > 1:
+        warnings.warn("Precomputed stats for year " + combinedname + " are no available. "+\
+            "Resorting to weighted avarage over the years.")
+
+        rgb_means = np.empty(shape=(len(years), 3))
+        rgb_stds = np.empty(shape=(len(years), 3))
+        numsamples = np.empty(shape=(len(years)))
+
+        for idx, year in enumerate(years):
+            rgb_means[idx, :] = np.array(DATASET_STATS[year]['rgb_mean'])
+            rgb_stds[idx, :] = np.array(DATASET_STATS[year]['rgb_std'])
+            numsamples[idx] = DATASET_STATS[year]['sample_count']
+
+        avg_weights = numsamples / np.sum(numsamples)
+
+        rgb_mean = np.sum(np.expand_dims(avg_weights, axis=-1) * rgb_means, axis=0)
+        rgb_std = np.sum(np.expand_dims(avg_weights, axis=-1) * rgb_stds, axis=0)
+
+        return rgb_mean, rgb_std
+    else:
+        KeyError("Precomputed stats for year " + combinedname + " are no available.")
