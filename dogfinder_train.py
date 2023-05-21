@@ -117,12 +117,13 @@ def train(
     checkpointfreq: int=0,
     augment_level: int=0,
     dataset_years=["2012"],
+    trainsuite="train",
     log_activations: Optional[str]=None,
     log_weights: bool=False
 ):
     matplotlib.use('Agg')
 
-    ds_train, ds_val = datasets.make_datasets(augment_level=augment_level, years=dataset_years)
+    ds_train, ds_val = datasets.make_datasets(augment_level=augment_level, years=dataset_years, trainsuite=trainsuite)
     print(f"Training dataset length: {len(ds_train)}")
     print(f"Validation dataset length: {len(ds_val)}")
 
@@ -436,6 +437,8 @@ if __name__ == "__main__":
                         help="Augmentation level. 0 for disabled, 1 for basic geometric. (default: 1)")
     parser.add_argument('--dataset-years', nargs='+', default=["2012"], 
                         help="Which PASCAL VOC competition years to take into the dataset. Defaults to 2012 only.")
+    parser.add_argument('--trainsuite', type=str, default="train", choices=('train', 'val', 'trainval'),
+                        help="Dataset split used for training. Defaults to train.")
     parser.add_argument('--log-activations', type=str, metavar="LAYERS",
                         help="Log histograms of activations for LAYERS to TensorBoard. Argument is a comma-separated "+
                         "list of layers, as defined by the model."
@@ -459,6 +462,7 @@ if __name__ == "__main__":
         checkpointfreq=args.checkpointfreq,
         augment_level=args.augmentation_level,
         dataset_years=args.dataset_years,
+        trainsuite=args.trainsuite,
         log_activations=args.log_activations,
         log_weights=args.log_weights
     )
