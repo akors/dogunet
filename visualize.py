@@ -1,4 +1,5 @@
 
+import math
 from typing import Iterable, List, Optional, Sequence
 import matplotlib
 import matplotlib.colors as mcolors
@@ -6,6 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torchvision.utils
+
+import datasets
 
 PASCAL_VOC_OBJECT_CLASS_MAX=20
 
@@ -164,3 +167,132 @@ def make_comparison_grid(img: torch.Tensor, prediction: torch.Tensor, mask: Opti
 
     comparison_fig_t = torchvision.utils.make_grid(grid, nrow=len(imglist))
     return comparison_fig_t
+
+
+def plot_img_classmasked(img: torch.Tensor, pred: torch.Tensor, fig=None, limit_classes=[], show_orig=True):
+    """Plot image masked by output probabilities for each class.
+
+    This gives an idea about which parts of the image the network sees as which class.
+
+    Parameters
+    ----------
+    img : torch.Tensor
+        Input image. 3D-Tensor [C,H,W] (no batch dim!). This should already be denormalized.
+    pred : torch.Tensor
+        Output prediction (sigmoid). 3D-Tensor (no batch dim!), [N,H,W].
+    fig : matplotlib.figure.Figure, optional
+        Figure to which to add the plots, by default None
+    limit_classes : List[int], optional
+        Only show masked image for the classes within this list. If empty, show all classes. by default []
+    show_orig : bool
+        Show original image in first subplot. by default True
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Output figure
+    np.array[matplotlib.axes.Axes]
+        Axes containing plots
+    """
+    fig =  plt.gcf() if fig is None else fig
+
+    with torch.no_grad():
+        pred_amax = torch.argmax(pred, dim=1)
+        pred_unique_classes = pred_amax.unique()
+
+    denormalized_img = img
+
+    ncols = min(3, len(pred_unique_classes) + bool(show_orig))
+    nrows = math.ceil((len(pred_unique_classes) + bool(show_orig)) / ncols)
+    axs = fig.subplots(nrows=nrows, ncols=ncols)
+    axs_raveled = np.ravel(axs)
+    if show_orig:
+        ax = axs_raveled[0]
+        ax.set_title("Original")
+        imshow_tensor(denormalized_img, ax=ax)
+    
+    # disable xticks, yticks, and axis. The axis will be re-enabled for subplots with content in them.
+    for ax in axs_raveled:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis('off')
+
+    unique_class_gen = (u.item() for u in pred_unique_classes if u in limit_classes or len(limit_classes)==0)
+    for idx, unique_class in enumerate(unique_class_gen, start=bool(show_orig)):
+        ax = axs_raveled[idx]
+
+        # We will abuse the sigmoid model output of this class as the alpha channel
+        # probs are between 0 and 1, alpha should be between 0 and 255
+        channelmask =  pred[0,unique_class,:,:].unsqueeze(0)# * 256.0
+
+        # stack RGB data with output probablity as alpha
+        masked_img = torch.cat(dim=0, tensors=(denormalized_img, channelmask))
+
+        # numpy the torch
+        masked_img = masked_img.permute(1, 2, 0).numpy()
+
+        ax.imshow(masked_img)
+        ax.set_title(datasets.CLASSNAMES[unique_class])
+        ax.axis('on')
+
+    
+    fig.subplots_adjust(wspace=0, hspace=.2)
+
+    return fig, axs
+
+
+def plot_class_heatmap(img, pred, fig=None, limit_classes=[], show_orig=True):
+    """Plot heatmaps for predicted class probabilities
+
+    This gives an idea about which parts of the image the network sees as which class.
+
+    Parameters
+    ----------
+    img : torch.Tensor
+        Input image. 3D-Tensor [C,H,W] (no batch dim!). This should already be denormalized.
+    pred : torch.Tensor
+        Output prediction (sigmoid). 3D-Tensor (no batch dim!), [N,H,W].
+    fig : matplotlib.figure.Figure, optional
+        Figure to which to add the plots, by default None
+    limit_classes : List[int], optional
+        Only show masked image for the classes within this list. If empty, show all classes. by default []
+    show_orig : bool
+        Show original image in first subplot. by default True
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        Output figure
+    np.array[matplotlib.axes.Axes]
+        Axes containing plots
+    """
+    fig =  plt.gcf() if fig is None else fig
+
+    with torch.no_grad():
+        pred_amax = torch.argmax(pred, dim=0)
+        pred_unique_classes = pred_amax.unique()
+
+    ncols = min(3, len(pred_unique_classes) + bool(show_orig))
+    nrows = math.ceil((len(pred_unique_classes) + bool(show_orig)) / ncols)
+    axs = fig.subplots(nrows=nrows, ncols=ncols)
+    axs_raveled = np.ravel(axs)
+    if show_orig:
+        ax = axs_raveled[0]
+        ax.set_title("Original")
+        imshow_tensor(img, ax=ax)
+
+    unique_class_gen = (u.item() for u in pred_unique_classes if u in limit_classes or len(limit_classes)==0)
+    for idx, unique_class in enumerate(unique_class_gen, start=bool(show_orig)):
+        ax = axs_raveled[idx]
+        ax.imshow(pred[unique_class,:,:].numpy(), vmin=0.0, vmax=1.0, cmap='inferno')
+
+        ax.set_title(datasets.CLASSNAMES[unique_class])
+
+    for ax in axs_raveled:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.axis('off')
+
+    fig.subplots_adjust(wspace=0.1, hspace=0)
+
+    return fig, axs
