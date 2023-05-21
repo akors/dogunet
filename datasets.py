@@ -135,7 +135,7 @@ DATASET_STATS = {
 }
 
 
-def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
+def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0, trainsuite="train"):
     assert len(years) > 0, "Need to select at least one year between 2007 and 2012"
     ds_train_list = list()
     ds_val_list = list()
@@ -149,7 +149,7 @@ def make_datasets(datadir: str="./data/", years=["2012"], augment_level: int=0):
 
         # create datasets with our transforms. assume they're already downloaded
         ds_train_list.append(torchvision.datasets.wrap_dataset_for_transforms_v2(torchvision.datasets.VOCSegmentation(
-            root=datadir, year=year, image_set="train", download=False, transforms=tr_train
+            root=datadir, year=year, image_set=trainsuite, download=False, transforms=tr_train
         )))
         ds_val_list.append(torchvision.datasets.wrap_dataset_for_transforms_v2(torchvision.datasets.VOCSegmentation(
             root=datadir, year=year, image_set="val", download=False, transforms=tr_val
